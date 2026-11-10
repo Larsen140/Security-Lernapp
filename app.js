@@ -368,21 +368,52 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     ai.msgs.push({ role: "user", content: text }); ai.busy = true; renderAI();
     const msgs = ai.msgs.map((m, i) => ({ role: m.role, content: i === 0 && ai.ctx ? ai.ctx + "\n\n" + m.content : m.content }));
     try {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-api-key": conf.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model: conf.model, max_tokens: 1200, system: AI_SYSTEM, messages: msgs })
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
-      const txt = (d.content || []).filter(c => c.type === "text").map(c => c.text).join("\n");
+      const txt = await callAI(conf, msgs);
       if (ai) ai.msgs.push({ role: "assistant", content: txt || "(keine Antwort)" });
     } catch (err) {
       if (ai) ai.msgs.push({ role: "assistant", content: "⚠️ Die KI ist gerade nicht erreichbar: " + err.message + (navigator.onLine ? "" : " (Du bist offline.)") });
     }
     if (ai) { ai.busy = false; renderAI(); }
   }
+  // Anbieter am Schlüssel erkennen: Google Gemini (AIza…) oder Anthropic Claude (sk-ant-…)
+  const providerOf = key => /^AIza/.test(key) ? "gemini" : "anthropic";
+  const GEM = "https://generativelanguage.googleapis.com/v1beta/";
+  async function callAI(conf, msgs) {
+    if ((conf.provider || providerOf(conf.key)) === "gemini") {
+      const r = await fetch(GEM + conf.model + ":generateContent", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-goog-api-key": conf.key },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: AI_SYSTEM }] },
+          contents: msgs.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+          generationConfig: { maxOutputTokens: 1500 }
+        })
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
+      const c = d.candidates && d.candidates[0];
+      return ((c && c.content && c.content.parts) || []).map(p => p.text || "").join("");
+    }
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": conf.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify({ model: conf.model, max_tokens: 1200, system: AI_SYSTEM, messages: msgs })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
+    return (d.content || []).filter(c => c.type === "text").map(c => c.text).join("\n");
+  }
   async function pickModel(key) {
+    if (providerOf(key) === "gemini") {
+      const r = await fetch(GEM + "models?pageSize=1000", { headers: { "x-goog-api-key": key } });
+      const d = await r.json();
+      if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
+      const ok = (d.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name);
+      const ver = n => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+      const stable = ok.filter(n => /gemini-[\d.]+-flash$/.test(n)).sort((x, y) => ver(y) - ver(x));
+      const flash = ok.filter(n => /flash/.test(n) && !/lite|image|tts|live|audio/.test(n)).sort((x, y) => ver(y) - ver(x));
+      return stable[0] || flash[0] || ok.find(n => /gemini/.test(n));
+    }
     const r = await fetch("https://api.anthropic.com/v1/models?limit=100", { headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } });
     const d = await r.json();
     if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
@@ -445,9 +476,9 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       <p class="muted">In der echten IHK-Prüfung wird das nicht angezeigt. Schalte es zum Üben ein und für eine realistische Prüfung aus.</p></div>
       <div class="card"><h2>🤖 KI-Lernhelfer</h2>
       <p class="muted"><b>Ohne Einrichtung:</b> Der Knopf „KI-Hilfe“ öffnet die Frage in Claude (claude.ai, kostenloses Konto genügt).<br>
-      <b>Mit eigenem Schlüssel:</b> Chat direkt in der App. Dafür brauchst du einen API-Schlüssel von <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> (kostenpflichtig nach Verbrauch, meist nur wenige Cent pro Frage). Der Schlüssel bleibt nur auf diesem Gerät und ist nicht im Backup.</p>
-      ${conf.key ? `<p>✅ Eingerichtet · Modell: <b>${esc(conf.model || "")}</b></p><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
-        : `<input type="password" id="aikey" placeholder="API-Schlüssel (sk-ant-…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
+      <b>Mit eigenem Schlüssel:</b> Chat direkt in der App. Es funktioniert ein <b>Google-Gemini-Schlüssel</b> (beginnt mit „AIza…“, kostenlos erhältlich auf <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>) oder ein <b>Claude-Schlüssel</b> (beginnt mit „sk-ant-…“, von <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>, kostenpflichtig). Die App erkennt automatisch, welcher Schlüssel es ist. Der Schlüssel bleibt nur auf diesem Gerät und ist nicht im Backup.</p>
+      ${conf.key ? `<p>✅ Eingerichtet · ${(conf.provider || providerOf(conf.key)) === "gemini" ? "Google Gemini" : "Claude"} · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
+        : `<input type="password" id="aikey" placeholder="Gemini-Schlüssel (AIza…) oder Claude-Schlüssel (sk-ant-…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
       <div class="card"><h2>💾 Backup</h2><p class="muted">Dein Fortschritt wird nur auf diesem Gerät gespeichert. Mit einem Backup kannst du ihn sichern oder auf ein anderes Gerät übertragen.</p>
       <button class="btn sec" id="exp">Backup herunterladen</button>
       <label class="btn sec" style="display:block">Backup laden<input type="file" id="imp" accept="application/json,.json" style="display:none"></label></div>
@@ -460,7 +491,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     const sv = $("#aisave"); if (sv) sv.onclick = async () => {
       const key = $("#aikey").value.trim(); if (!key) return toast("Bitte Schlüssel eingeben");
       sv.disabled = true; sv.textContent = "Teste …";
-      try { const model = await pickModel(key); if (!model) throw new Error("Kein Modell gefunden"); aiSave({ key, model }); toast("KI eingerichtet ✅"); settingsPage(); }
+      try { const model = await pickModel(key); if (!model) throw new Error("Kein Modell gefunden"); aiSave({ key, model, provider: providerOf(key) }); toast("KI eingerichtet ✅"); settingsPage(); }
       catch (err) { sv.disabled = false; sv.textContent = "Speichern & testen"; toast("Fehler: " + err.message); }
     };
     $("#exp").onclick = () => {
