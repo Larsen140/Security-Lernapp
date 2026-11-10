@@ -495,6 +495,32 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     }
     throw last;
   }
+  // Fehlersuche: verschiedene Anfragen an Google, jeweils mit Ergebnis
+  async function diagnoseAI(key, model, log) {
+    const probe = async (name, url, opt) => {
+      const t0 = Date.now();
+      try {
+        const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 20000);
+        const r = await fetch(url, Object.assign({ signal: ctl.signal }, opt)).finally(() => clearTimeout(to));
+        const txt = await r.text().catch(() => "");
+        let m = ""; try { const d = JSON.parse(txt); m = (d.error && (d.error.status + ": " + d.error.message)) || (d.candidates ? "Antwort erhalten" : d.models ? d.models.length + " Modelle" : d.totalTokens != null ? "Tokens: " + d.totalTokens : ""); } catch (e) { m = txt.slice(0, 80); }
+        log(`${r.ok ? "✅" : "⚠️"} ${name}: HTTP ${r.status} ${m} (${Date.now() - t0} ms)`);
+      } catch (err) { log(`❌ ${name}: ${err.name === "AbortError" ? "keine Antwort in 20 s" : err.name + " – " + err.message} (${Date.now() - t0} ms)`); }
+    };
+    const k = "key=" + encodeURIComponent(key), m = model || "models/gemini-2.5-flash";
+    const body = JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Antworte nur mit: OK" }] }] });
+    log("Gerät: " + navigator.userAgent.replace(/^Mozilla\/5\.0 /, "").slice(0, 90) + (navigator.onLine ? " · online" : " · OFFLINE"));
+    log("Modell: " + m.replace(/^models\//, ""));
+    await probe("1 Google ohne Schlüssel", GEM + "models");
+    await probe("2 Modellliste (Header)", GEM + "models?pageSize=5", { headers: { "x-goog-api-key": key } });
+    await probe("3 Modellliste (?key)", GEM + "models?pageSize=5&" + k);
+    await probe("4 Senden ohne Schlüssel", GEM + m + ":generateContent", { method: "POST", body });
+    await probe("5 Tokens zählen (?key, einfach)", GEM + m + ":countTokens?" + k, { method: "POST", body });
+    await probe("6 Senden (?key, einfach)", GEM + m + ":generateContent?" + k, { method: "POST", body });
+    await probe("7 Senden (?key, JSON)", GEM + m + ":generateContent?" + k, { method: "POST", headers: { "content-type": "application/json" }, body });
+    await probe("8 Senden (Header, JSON)", GEM + m + ":generateContent", { method: "POST", headers: { "content-type": "application/json", "x-goog-api-key": key }, body });
+    await probe("9 Streaming (?key, einfach)", GEM + m + ":streamGenerateContent?alt=sse&" + k, { method: "POST", body });
+  }
   // Einrichten: Modelle holen und eine echte Testfrage schicken
   async function setupAI(key, log) {
     const { way, models } = await listModels(key);
@@ -560,7 +586,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       <div class="card"><h2>🤖 KI-Lernhelfer</h2>
       <p class="muted"><b>Ohne Einrichtung:</b> Der Knopf „KI-Hilfe“ kopiert die Frage und öffnet Google Gemini (gemini.google.com, kostenloses Google-Konto genügt).<br>
       <b>Mit eigenem Schlüssel:</b> Chat direkt in der App. Es funktioniert nur ein <b>Google-Gemini-Schlüssel, der mit „AQ.“ beginnt</b> (kostenlos erhältlich auf <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>). Der Schlüssel bleibt nur auf diesem Gerät und ist nicht im Backup.</p>
-      ${conf.key ? `<p>✅ Eingerichtet · Google Gemini · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><button class="btn sec" id="aitest">🔍 KI testen</button><div id="ailog" class="muted" style="font-size:13px"></div><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
+      ${conf.key ? `<p>✅ Eingerichtet · Google Gemini · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><button class="btn sec" id="aitest">🔍 KI testen</button><div id="ailog" class="muted" style="font-size:13px;word-break:break-word"></div><button class="btn ghost" id="aicopylog" style="display:none">📋 Testergebnis kopieren</button><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
         : `<input type="password" id="aikey" placeholder="Gemini-Schlüssel (AQ.…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
       <div class="card"><h2>💾 Backup</h2><p class="muted">Dein Fortschritt wird nur auf diesem Gerät gespeichert. Mit einem Backup kannst du ihn sichern oder auf ein anderes Gerät übertragen.</p>
       <button class="btn sec" id="exp">Backup herunterladen</button>
@@ -579,7 +605,12 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       let box = $("#ailog0"); if (!box) { box = document.createElement("div"); box.id = "ailog0"; box.className = "muted"; box.style.fontSize = "13px"; sv.after(box); }
       box.innerHTML = "";
       try { await setupAI(key, logTo(box)); toast("KI eingerichtet ✅"); settingsPage(); }
-      catch (err) { sv.disabled = false; sv.textContent = "Speichern & testen"; box.innerHTML += "<b>Fehler: " + esc(err.message) + "</b>"; toast("Fehler: " + err.message); }
+      catch (err) {
+        box.innerHTML += "<b>Fehler: " + esc(err.message) + "</b><br><br><b>Fehlersuche (dauert bis zu 3 Min.):</b><br>";
+        await diagnoseAI(key, null, logTo(box));
+        box.innerHTML += "<b>Fertig. Bitte Screenshot schicken.</b>";
+        sv.disabled = false; sv.textContent = "Speichern & testen";
+      }
     };
     const tb = $("#aitest"); if (tb) tb.onclick = async () => {
       const box = $("#ailog"); box.innerHTML = "Teste … (bis zu 1 Min.)<br>"; tb.disabled = true;
@@ -587,8 +618,14 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
         if (lm) { c.models = lm.models.slice(0, 6); aiSave(c); box.innerHTML += "Modellliste: ✅ " + lm.models.length + " Modelle (Weg „" + lm.way + "“)<br>"; }
         const t = await callAI(c, [{ role: "user", content: "Antworte nur mit: OK" }], logTo(box));
         box.innerHTML += "<b>Antwort: " + esc(t.slice(0, 80)) + "</b> – alles in Ordnung ✅"; }
-      catch (err) { box.innerHTML += "<b>Fehler: " + esc(err.message) + "</b>"; }
+      catch (err) {
+        box.innerHTML += "<b>Fehler: " + esc(err.message) + "</b><br><br><b>Fehlersuche (dauert bis zu 3 Min.):</b><br>";
+        const c = aiConf(); await diagnoseAI(c.key, c.model, logTo(box));
+        box.innerHTML += "<b>Fertig. Bitte Screenshot schicken oder „Testergebnis kopieren“.</b>";
+      }
       tb.disabled = false;
+      const cl = $("#aicopylog"); cl.style.display = "block";
+      cl.onclick = () => navigator.clipboard.writeText("Security LernApp " + VERSION + "\n" + box.innerText).then(() => toast("Kopiert ✅")).catch(() => toast("Kopieren nicht möglich"));
     };
     $("#exp").onclick = () => {
       const blob = new Blob([JSON.stringify(S)], { type: "application/json" });

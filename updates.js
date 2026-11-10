@@ -2,6 +2,12 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "1.7", d: "2026-11-10", items: [
+      "„KI testen“ macht bei Problemen eine genaue Fehlersuche: 9 verschiedene Anfragen an Google, jeweils mit Ergebnis",
+      "Neuer Knopf „Testergebnis kopieren“, damit du das Ergebnis weitergeben kannst"
+    ]
+  },
+  {
     v: "1.6", d: "2026-11-10", items: [
       "KI-Lernhelfer repariert: Auf dem iPhone kam „Load failed“. Die App probiert jetzt mehrere Verbindungswege zu Google und merkt sich den, der funktioniert",
       "„Speichern & testen“ schickt eine echte Testfrage an die KI",
