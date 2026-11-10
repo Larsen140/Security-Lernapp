@@ -11,6 +11,12 @@
     return JSON.parse(JSON.stringify(defaults));
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  S.settings = Object.assign({ showCount: true }, S.settings || {});
+  // KI-Zugang wird getrennt gespeichert und ist NICHT im Backup enthalten
+  const AIKEY = "slapp-ai";
+  function aiConf() { try { return JSON.parse(localStorage.getItem(AIKEY)) || {}; } catch (e) { return {}; } }
+  function aiSave(c) { try { localStorage.setItem(AIKEY, JSON.stringify(c)); } catch (e) {} }
+  const countText = q => q.c.length === 1 ? "1 Antwort ist richtig" : q.c.length + " Antworten sind richtig";
 
   // ---------- Daten ----------
   const TOPICS = (window.SL_TOPICS || []).slice();
@@ -89,6 +95,7 @@
         <button class="tile" data-go="#/markiert"><span class="big">⭐</span><b>Markierte Fragen</b><span class="muted">${Object.keys(S.flags).length} Fragen</span></button>
         <button class="tile" data-go="#/eigene"><span class="big">✏️</span><b>Eigene Fragen</b><span class="muted">${S.custom.length} Fragen</span></button>
       </div>
+      <button class="btn sec" id="aihome">🤖 KI-Lernhelfer fragen</button>
       <h2 style="margin-top:20px">Sachgebiete</h2>`;
     TOPICS.forEach(t => {
       const tc = counts(questionsOf(t.id));
@@ -98,6 +105,7 @@
     html += `<div class="legend"><span><i class="g"></i>sicher (2× richtig)</span><span><i class="y"></i>1× richtig</span><span><i class="r"></i>zuletzt falsch</span><span><i style="background:var(--grey)"></i>neu</span></div>
       <button class="btn ghost" style="margin-top:20px" data-go="#/einstellungen">⚙️ Einstellungen & Backup</button>`;
     $("#app").innerHTML = html; foot("");
+    $("#aihome").onclick = () => openAI(null);
   }
 
   // ---------- Themenseite ----------
@@ -161,8 +169,8 @@
     const t = topicById(q.topic);
     let html = `<div class="progress"><div style="width:${s.i / s.list.length * 100}%"></div></div>
       <div class="qhead"><span>Frage ${s.i + 1} von ${s.list.length} · <span class="pill">${t ? t.short : ""}</span>${q.own ? '<span class="pill">eigene</span>' : ""}</span>
-      <button class="flagbtn ${S.flags[q.id] ? "on" : ""}" id="flag">⭐ ${S.flags[q.id] ? "markiert" : "merken"}</button></div>
-      <div class="card"><div class="qtext">${esc(q.q)}</div><div class="hint">Wähle alle richtigen Antworten aus (eine oder mehrere).</div>`;
+      <span><button class="flagbtn" id="aiq">🤖 KI-Hilfe</button> <button class="flagbtn ${S.flags[q.id] ? "on" : ""}" id="flag">⭐ ${S.flags[q.id] ? "markiert" : "merken"}</button></span></div>
+      <div class="card"><div class="qtext">${esc(q.q)}</div><div class="hint">${S.settings.showCount ? `<span class="count">👉 ${countText(q)}</span> · ${s.sel.length} gewählt` : "Wähle alle richtigen Antworten aus (eine oder mehrere)."}</div>`;
     s.order.forEach((ai, k) => {
       let cls = s.sel.includes(ai) ? "sel" : "";
       if (s.checked) {
@@ -179,6 +187,7 @@
     html += `</div>`;
     $("#app").innerHTML = html;
     $("#flag").onclick = () => { if (S.flags[q.id]) delete S.flags[q.id]; else S.flags[q.id] = 1; save(); renderQ(); };
+    $("#aiq").onclick = () => openAI(q, s.checked ? s.sel : null, s.order);
     document.querySelectorAll(".ans").forEach(b => b.onclick = () => {
       const a = +b.dataset.a; const i = s.sel.indexOf(a);
       if (i >= 0) s.sel.splice(i, 1); else s.sel.push(a); renderQ();
@@ -226,7 +235,7 @@
     const e = exam, q = e.list[e.i];
     setHeader("Prüfung", () => { if (confirm("Prüfung abbrechen? Der Fortschritt dieser Prüfung geht verloren.")) { exam = null; clearTimer(); go("#/pruefung"); } });
     let html = `<div class="qhead"><span>Frage ${e.i + 1} / ${e.list.length} · <span class="pill">${topicById(q.topic).short}</span></span><span class="timer" id="timer"></span></div>
-      <div class="card"><div class="qtext">${esc(q.q)}</div><div class="hint">Eine oder mehrere Antworten sind richtig.</div>`;
+      <div class="card"><div class="qtext">${esc(q.q)}</div><div class="hint">${S.settings.showCount ? `<span class="count">👉 ${countText(q)}</span> · ${e.ans[e.i].length} gewählt` : "Eine oder mehrere Antworten sind richtig."}</div>`;
     e.order[e.i].forEach((ai, k) => {
       const sel = e.ans[e.i].includes(ai);
       html += `<button class="ans ${sel ? "sel" : ""}" data-a="${ai}"><span class="box">${sel ? "✓" : ""}</span><span>${String.fromCharCode(65 + k)}) ${esc(q.a[ai])}</span></button>`;
@@ -284,7 +293,7 @@
   }
   function showReview(i) {
     const e = exam, q = e.list[i], sel = e.ans[i];
-    let h = `<div class="card"><div class="qhead"><span>Frage ${i + 1} · ${topicById(q.topic).short}</span></div><div class="qtext">${esc(q.q)}</div>`;
+    let h = `<div class="card"><div class="qhead"><span>Frage ${i + 1} · ${topicById(q.topic).short} · ${countText(q)}</span><button class="flagbtn" id="aiq">🤖 KI-Hilfe</button></div><div class="qtext">${esc(q.q)}</div>`;
     e.order[i].forEach((ai, k) => {
       const good = q.c.includes(ai), s = sel.includes(ai);
       const cls = good && s ? "ok sel" : good ? "ok miss" : s ? "bad" : "";
@@ -292,6 +301,104 @@
     });
     h += `<div class="expl ${e.res[i] ? "ok" : "bad"}">${esc(q.e || "")}${q.p ? `<br><span class="para">📌 ${esc(q.p)}</span>` : ""}</div></div>`;
     $("#review").innerHTML = h; $("#review").scrollIntoView({ behavior: "smooth" });
+    $("#aiq").onclick = () => openAI(q, sel, e.order[i]);
+  }
+
+  // ---------- KI-Lernhelfer ----------
+  const AI_SYSTEM = `Du bist ein geduldiger Lernhelfer für die IHK-Sachkundeprüfung nach § 34a GewO (Bewachungsgewerbe) in Deutschland.
+Der Lernende fängt bei null an. Erkläre in einfachem Deutsch, kurz und klar, mit Beispielen aus dem Wachdienst-Alltag.
+Nenne die passenden Paragraphen (z. B. § 32 StGB, § 127 StPO, § 34a GewO, BewachV, DSGVO, BGB, WaffG, DGUV Vorschrift 1/23).
+Wenn der Lernende eine Frage noch NICHT beantwortet hat, gib zuerst nur Denkanstöße und Hinweise, ohne die Lösung zu verraten – außer er bittet ausdrücklich um die Lösung.
+Wenn er schon geantwortet hat, erkläre, warum die richtigen Antworten richtig und die falschen falsch sind.
+Gib Merkhilfen (Eselsbrücken), wenn sie helfen. Sei ehrlich, wenn du dir unsicher bist, und verweise dann auf den Gesetzestext oder den Dozenten.
+Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
+  let ai = null;
+  function qContext(q, sel, order) {
+    if (!q) return "";
+    const ord = order || q.a.map((_, i) => i);
+    let t = `Prüfungsfrage (${topicById(q.topic) ? topicById(q.topic).name : ""}): ${q.q}\nAntwortmöglichkeiten (${countText(q)}):\n`;
+    ord.forEach((ai2, k) => { t += `${String.fromCharCode(65 + k)}) ${q.a[ai2]}\n`; });
+    if (sel) {
+      t += `\nMeine Auswahl: ${sel.length ? ord.map((x, k) => sel.includes(x) ? String.fromCharCode(65 + k) : null).filter(Boolean).join(", ") : "keine"}`;
+      t += `\nRichtig ist: ${ord.map((x, k) => q.c.includes(x) ? String.fromCharCode(65 + k) : null).filter(Boolean).join(", ")}`;
+      if (q.e) t += `\nErklärung aus der App: ${q.e}${q.p ? " (" + q.p + ")" : ""}`;
+    } else t += `\n(Ich habe die Frage noch nicht beantwortet.)`;
+    return t;
+  }
+  function md(s) {
+    return esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^#{1,4} (.+)$/gm, "<b>$1</b>").replace(/^[-*] (.+)$/gm, "• $1").replace(/\n/g, "<br>");
+  }
+  function openAI(q, sel, order) {
+    ai = { ctx: qContext(q, sel, order), msgs: [], busy: false, answered: !!sel, hasQ: !!q };
+    renderAI();
+  }
+  function closeAI() { $("#ai").style.display = "none"; ai = null; }
+  function renderAI() {
+    const box = $("#ai"), conf = aiConf();
+    box.style.display = "flex";
+    let quick = "";
+    if (ai.hasQ) quick = ai.answered
+      ? ["Erklär mir die Lösung einfach", "Warum ist meine Antwort falsch?", "Gib mir eine Eselsbrücke"]
+      : ["Gib mir einen Tipp (ohne Lösung)", "Erklär mir die Begriffe", "Sag mir die Lösung"];
+    else quick = ["Erklär mir Notwehr einfach", "Unterschied § 127 StPO und § 229 BGB?", "Wie lerne ich am besten für die Prüfung?"];
+    let body = "";
+    if (!conf.key) {
+      const prompt = (ai.ctx ? ai.ctx + "\n\n" : "") + "Bitte hilf mir als Lernhelfer für die Sachkundeprüfung § 34a GewO" + (ai.hasQ && !ai.answered ? " – gib mir zuerst nur einen Tipp, nicht die Lösung." : ".");
+      body = `<p>Die KI kann auf zwei Arten helfen:</p>
+        <a class="btn" target="_blank" rel="noopener" href="https://claude.ai/new?q=${encodeURIComponent(AI_SYSTEM + "\n\n" + prompt)}">💬 In Claude öffnen (kostenlos mit Konto)</a>
+        <button class="btn sec" id="aicopy">📋 Frage für die KI kopieren</button>
+        <p class="muted">Oder richte unter <a href="#/einstellungen" id="aiset">Einstellungen</a> einen eigenen KI-Schlüssel ein, dann chattest du direkt hier in der App.</p>`;
+      box.querySelector(".aibody").innerHTML = (ai.ctx ? `<div class="aictx">${md(ai.ctx)}</div>` : "") + body;
+      box.querySelector(".aifoot").style.display = "none";
+      const cp = $("#aicopy"); if (cp) cp.onclick = () => { navigator.clipboard.writeText(AI_SYSTEM + "\n\n" + prompt).then(() => toast("Kopiert – jetzt in der KI einfügen")).catch(() => toast("Kopieren nicht möglich")); };
+      $("#aiset").onclick = () => closeAI();
+      return;
+    }
+    body = (ai.ctx ? `<div class="aictx">${md(ai.ctx)}</div>` : `<p class="muted">Stell mir jede Frage zum Prüfungsstoff.</p>`);
+    ai.msgs.forEach(m => { body += `<div class="msg ${m.role}">${m.role === "user" ? esc(m.content) : md(m.content)}</div>`; });
+    if (ai.busy) body += `<div class="msg assistant muted">schreibt …</div>`;
+    if (!ai.msgs.length) body += `<div class="quick">${quick.map(x => `<button class="flagbtn" data-q="${esc(x)}">${esc(x)}</button>`).join("")}</div>`;
+    const b = box.querySelector(".aibody"); b.innerHTML = body; b.scrollTop = b.scrollHeight;
+    box.querySelector(".aifoot").style.display = "flex";
+    b.querySelectorAll("[data-q]").forEach(x => x.onclick = () => askAI(x.dataset.q));
+  }
+  async function askAI(text) {
+    if (!text || !ai || ai.busy) return;
+    const conf = aiConf();
+    ai.msgs.push({ role: "user", content: text }); ai.busy = true; renderAI();
+    const msgs = ai.msgs.map((m, i) => ({ role: m.role, content: i === 0 && ai.ctx ? ai.ctx + "\n\n" + m.content : m.content }));
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-api-key": conf.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({ model: conf.model, max_tokens: 1200, system: AI_SYSTEM, messages: msgs })
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
+      const txt = (d.content || []).filter(c => c.type === "text").map(c => c.text).join("\n");
+      if (ai) ai.msgs.push({ role: "assistant", content: txt || "(keine Antwort)" });
+    } catch (err) {
+      if (ai) ai.msgs.push({ role: "assistant", content: "⚠️ Die KI ist gerade nicht erreichbar: " + err.message + (navigator.onLine ? "" : " (Du bist offline.)") });
+    }
+    if (ai) { ai.busy = false; renderAI(); }
+  }
+  async function pickModel(key) {
+    const r = await fetch("https://api.anthropic.com/v1/models?limit=100", { headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } });
+    const d = await r.json();
+    if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
+    const ids = (d.data || []).map(m => m.id);
+    return ids.find(i => /sonnet/i.test(i)) || ids.find(i => /haiku/i.test(i)) || ids[0];
+  }
+  function initAIPanel() {
+    const box = document.createElement("div"); box.id = "ai"; box.className = "aipanel";
+    box.innerHTML = `<div class="aiwin"><div class="aihead"><b>🤖 KI-Lernhelfer</b><button class="flagbtn" id="aiclose">✕ Schließen</button></div>
+      <div class="aibody"></div>
+      <form class="aifoot" id="aiform"><input id="aiin" placeholder="Deine Frage an die KI …" autocomplete="off"><button class="btn" style="width:auto;margin:0">Senden</button></form>
+      <div class="muted" style="font-size:12px;padding:0 14px 10px">KI-Antworten können Fehler enthalten. Im Zweifel gilt der Gesetzestext.</div></div>`;
+    document.body.appendChild(box);
+    $("#aiclose").onclick = closeAI;
+    box.onclick = ev => { if (ev.target === box) closeAI(); };
+    $("#aiform").onsubmit = ev => { ev.preventDefault(); const v = $("#aiin").value.trim(); $("#aiin").value = ""; askAI(v); };
   }
 
   // ---------- Eigene Fragen ----------
@@ -332,20 +439,37 @@
   // ---------- Einstellungen ----------
   function settingsPage() {
     setHeader("Einstellungen", "#/");
-    $("#app").innerHTML = `<div class="card"><h2>💾 Backup</h2><p class="muted">Dein Fortschritt wird nur auf diesem Gerät gespeichert. Mit einem Backup kannst du ihn sichern oder auf ein anderes Gerät übertragen.</p>
+    const conf = aiConf();
+    $("#app").innerHTML = `<div class="card"><h2>🔢 Anzeige</h2>
+      <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="showc" style="width:22px;height:22px;margin:0" ${S.settings.showCount ? "checked" : ""}> Anzahl der richtigen Antworten bei jeder Frage anzeigen</label>
+      <p class="muted">In der echten IHK-Prüfung wird das nicht angezeigt. Schalte es zum Üben ein und für eine realistische Prüfung aus.</p></div>
+      <div class="card"><h2>🤖 KI-Lernhelfer</h2>
+      <p class="muted"><b>Ohne Einrichtung:</b> Der Knopf „KI-Hilfe“ öffnet die Frage in Claude (claude.ai, kostenloses Konto genügt).<br>
+      <b>Mit eigenem Schlüssel:</b> Chat direkt in der App. Dafür brauchst du einen API-Schlüssel von <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a> (kostenpflichtig nach Verbrauch, meist nur wenige Cent pro Frage). Der Schlüssel bleibt nur auf diesem Gerät und ist nicht im Backup.</p>
+      ${conf.key ? `<p>✅ Eingerichtet · Modell: <b>${esc(conf.model || "")}</b></p><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
+        : `<input type="password" id="aikey" placeholder="API-Schlüssel (sk-ant-…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
+      <div class="card"><h2>💾 Backup</h2><p class="muted">Dein Fortschritt wird nur auf diesem Gerät gespeichert. Mit einem Backup kannst du ihn sichern oder auf ein anderes Gerät übertragen.</p>
       <button class="btn sec" id="exp">Backup herunterladen</button>
       <label class="btn sec" style="display:block">Backup laden<input type="file" id="imp" accept="application/json,.json" style="display:none"></label></div>
       <div class="card"><h2>📲 Als App installieren</h2><p class="muted"><b>iPhone (Safari):</b> Teilen-Symbol → „Zum Home-Bildschirm“.<br><b>Android (Chrome):</b> Menü ⋮ → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“.<br>Danach funktioniert die App auch offline.</p></div>
       <div class="card"><h2>🗑 Zurücksetzen</h2><button class="btn danger" id="reset">Lernfortschritt löschen</button><p class="muted">Eigene Fragen bleiben erhalten.</p></div>
       <div class="card"><p class="muted">Security LernApp · ${allQuestions().length} Fragen. Die Fragen sind selbst formuliert auf Grundlage der Gesetze (GG, GewO, BewachV, DSGVO, BDSG, BGB, StGB, StPO, WaffG, DGUV). Ohne Gewähr: Im Zweifel gilt der aktuelle Gesetzestext.</p></div>`;
     foot("");
+    $("#showc").onchange = ev => { S.settings.showCount = ev.target.checked; save(); toast("Gespeichert"); };
+    const del = $("#aidel"); if (del) del.onclick = () => { aiSave({}); settingsPage(); toast("Schlüssel entfernt"); };
+    const sv = $("#aisave"); if (sv) sv.onclick = async () => {
+      const key = $("#aikey").value.trim(); if (!key) return toast("Bitte Schlüssel eingeben");
+      sv.disabled = true; sv.textContent = "Teste …";
+      try { const model = await pickModel(key); if (!model) throw new Error("Kein Modell gefunden"); aiSave({ key, model }); toast("KI eingerichtet ✅"); settingsPage(); }
+      catch (err) { sv.disabled = false; sv.textContent = "Speichern & testen"; toast("Fehler: " + err.message); }
+    };
     $("#exp").onclick = () => {
       const blob = new Blob([JSON.stringify(S)], { type: "application/json" });
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "security-lernapp-backup.json"; a.click();
     };
     $("#imp").onchange = ev => {
       const f = ev.target.files[0]; if (!f) return;
-      const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); if (!d.prog) throw 0; S = Object.assign({}, defaults, d); save(); toast("Backup geladen ✅"); go("#/"); } catch (e) { toast("Ungültige Backup-Datei"); } };
+      const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); if (!d.prog) throw 0; S = Object.assign({}, defaults, d); S.settings = Object.assign({ showCount: true }, S.settings || {}); save(); toast("Backup geladen ✅"); go("#/"); } catch (e) { toast("Ungültige Backup-Datei"); } };
       r.readAsText(f);
     };
     $("#reset").onclick = () => { if (confirm("Wirklich den gesamten Lernfortschritt löschen?")) { S.prog = {}; S.exams = []; S.flags = {}; save(); toast("Fortschritt gelöscht"); go("#/"); } };
@@ -370,7 +494,8 @@
     const target = el.dataset.go;
     if (location.hash === target) router(true); else go(target);
   });
-  window.addEventListener("hashchange", () => router());
+  window.addEventListener("hashchange", () => { if (ai) closeAI(); router(); });
+  initAIPanel();
   window.addEventListener("beforeunload", ev => { if (exam && !exam.done) { ev.preventDefault(); ev.returnValue = ""; } });
   router();
 
