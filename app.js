@@ -14,7 +14,12 @@
   S.settings = Object.assign({ showCount: true }, S.settings || {});
   // KI-Zugang wird getrennt gespeichert und ist NICHT im Backup enthalten
   const AIKEY = "slapp-ai";
-  function aiConf() { try { return JSON.parse(localStorage.getItem(AIKEY)) || {}; } catch (e) { return {}; } }
+  // Nur Google-Gemini-Schlüssel im Format „AQ.…“ werden akzeptiert
+  const isGemKey = k => /^AQ\./.test(k || "");
+  function aiConf() {
+    let c; try { c = JSON.parse(localStorage.getItem(AIKEY)) || {}; } catch (e) { c = {}; }
+    return isGemKey(c.key) ? c : {}; // alte Claude- oder AIza-Schlüssel gelten als nicht eingerichtet
+  }
   function aiSave(c) { try { localStorage.setItem(AIKEY, JSON.stringify(c)); } catch (e) {} }
   // Versionsstand aus updates.js (neueste Version steht oben)
   const UPDATES = window.SL_UPDATES || [];
@@ -386,8 +391,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     }
     if (ai) { ai.busy = false; renderAI(); }
   }
-  // Anbieter am Schlüssel erkennen: Google Gemini (AIza…) oder Anthropic Claude (sk-ant-…)
-  const providerOf = key => /^sk-ant-/.test(key) ? "anthropic" : "gemini";
+  // KI-Anbieter: ausschließlich Google Gemini
   const GEM = "https://generativelanguage.googleapis.com/v1beta/";
   function gemFetch(url, opt, key, mode) {
     opt = Object.assign({}, opt); opt.headers = Object.assign({}, opt.headers || {});
@@ -396,48 +400,31 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     return fetch(url, opt);
   }
   async function callAI(conf, msgs) {
-    if ((conf.provider || providerOf(conf.key)) === "gemini") {
-      const r = await gemFetch(GEM + conf.model + ":generateContent", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: AI_SYSTEM }] },
-          contents: msgs.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-          generationConfig: { maxOutputTokens: 1500 }
-        })
-      }, conf.key, conf.auth);
-      const d = await r.json();
-      if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
-      const c = d.candidates && d.candidates[0];
-      return ((c && c.content && c.content.parts) || []).map(p => p.text || "").join("");
-    }
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
+    const r = await gemFetch(GEM + conf.model + ":generateContent", {
       method: "POST",
-      headers: { "content-type": "application/json", "x-api-key": conf.key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-      body: JSON.stringify({ model: conf.model, max_tokens: 1200, system: AI_SYSTEM, messages: msgs })
-    });
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: AI_SYSTEM }] },
+        contents: msgs.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+        generationConfig: { maxOutputTokens: 1500 }
+      })
+    }, conf.key, conf.auth);
     const d = await r.json();
     if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
-    return (d.content || []).filter(c => c.type === "text").map(c => c.text).join("\n");
+    const c = d.candidates && d.candidates[0];
+    return ((c && c.content && c.content.parts) || []).map(p => p.text || "").join("");
   }
   async function pickModel(key) {
-    if (providerOf(key) === "gemini") {
-      let auth = "header", r = await gemFetch(GEM + "models?pageSize=1000", {}, key, auth).catch(() => null);
-      if (!r || !r.ok) { auth = "query"; r = await gemFetch(GEM + "models?pageSize=1000", {}, key, auth); }
-      const d = await r.json();
-      if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
-      pickModel.auth = auth;
-      const ok = (d.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name);
-      const ver = n => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
-      const stable = ok.filter(n => /gemini-[\d.]+-flash$/.test(n)).sort((x, y) => ver(y) - ver(x));
-      const flash = ok.filter(n => /flash/.test(n) && !/lite|image|tts|live|audio/.test(n)).sort((x, y) => ver(y) - ver(x));
-      return stable[0] || flash[0] || ok.find(n => /gemini/.test(n));
-    }
-    const r = await fetch("https://api.anthropic.com/v1/models?limit=100", { headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } });
+    let auth = "header", r = await gemFetch(GEM + "models?pageSize=1000", {}, key, auth).catch(() => null);
+    if (!r || !r.ok) { auth = "query"; r = await gemFetch(GEM + "models?pageSize=1000", {}, key, auth); }
     const d = await r.json();
     if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
-    const ids = (d.data || []).map(m => m.id);
-    return ids.find(i => /sonnet/i.test(i)) || ids.find(i => /haiku/i.test(i)) || ids[0];
+    pickModel.auth = auth;
+    const ok = (d.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name);
+    const ver = n => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+    const stable = ok.filter(n => /gemini-[\d.]+-flash$/.test(n)).sort((x, y) => ver(y) - ver(x));
+    const flash = ok.filter(n => /flash/.test(n) && !/lite|image|tts|live|audio/.test(n)).sort((x, y) => ver(y) - ver(x));
+    return stable[0] || flash[0] || ok.find(n => /gemini/.test(n));
   }
   function initAIPanel() {
     const box = document.createElement("div"); box.id = "ai"; box.className = "aipanel";
@@ -495,9 +482,9 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       <p class="muted">In der echten IHK-Prüfung wird das nicht angezeigt. Schalte es zum Üben ein und für eine realistische Prüfung aus.</p></div>
       <div class="card"><h2>🤖 KI-Lernhelfer</h2>
       <p class="muted"><b>Ohne Einrichtung:</b> Der Knopf „KI-Hilfe“ öffnet die Frage in Claude (claude.ai, kostenloses Konto genügt).<br>
-      <b>Mit eigenem Schlüssel:</b> Chat direkt in der App. Es funktioniert ein <b>Google-Gemini-Schlüssel</b> (beginnt z. B. mit „AIza…“ oder „AQ.…“, kostenlos erhältlich auf <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>) oder ein <b>Claude-Schlüssel</b> (beginnt mit „sk-ant-…“, von <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>, kostenpflichtig). Die App erkennt automatisch, welcher Schlüssel es ist. Der Schlüssel bleibt nur auf diesem Gerät und ist nicht im Backup.</p>
-      ${conf.key ? `<p>✅ Eingerichtet · ${(conf.provider || providerOf(conf.key)) === "gemini" ? "Google Gemini" : "Claude"} · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
-        : `<input type="password" id="aikey" placeholder="Gemini-Schlüssel oder Claude-Schlüssel (sk-ant-…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
+      <b>Mit eigenem Schlüssel:</b> Chat direkt in der App. Es funktioniert nur ein <b>Google-Gemini-Schlüssel, der mit „AQ.“ beginnt</b> (kostenlos erhältlich auf <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>). Der Schlüssel bleibt nur auf diesem Gerät und ist nicht im Backup.</p>
+      ${conf.key ? `<p>✅ Eingerichtet · Google Gemini · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
+        : `<input type="password" id="aikey" placeholder="Gemini-Schlüssel (AQ.…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
       <div class="card"><h2>💾 Backup</h2><p class="muted">Dein Fortschritt wird nur auf diesem Gerät gespeichert. Mit einem Backup kannst du ihn sichern oder auf ein anderes Gerät übertragen.</p>
       <button class="btn sec" id="exp">Backup herunterladen</button>
       <label class="btn sec" style="display:block">Backup laden<input type="file" id="imp" accept="application/json,.json" style="display:none"></label></div>
@@ -509,8 +496,9 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     const del = $("#aidel"); if (del) del.onclick = () => { aiSave({}); settingsPage(); toast("Schlüssel entfernt"); };
     const sv = $("#aisave"); if (sv) sv.onclick = async () => {
       const key = $("#aikey").value.trim(); if (!key) return toast("Bitte Schlüssel eingeben");
+      if (!isGemKey(key)) return toast("Nur Gemini-Schlüssel, die mit „AQ.“ beginnen");
       sv.disabled = true; sv.textContent = "Teste …";
-      try { const model = await pickModel(key); if (!model) throw new Error("Kein Modell gefunden"); aiSave({ key, model, provider: providerOf(key), auth: pickModel.auth || "header" }); toast("KI eingerichtet ✅"); settingsPage(); }
+      try { const model = await pickModel(key); if (!model) throw new Error("Kein Modell gefunden"); aiSave({ key, model, provider: "gemini", auth: pickModel.auth || "header" }); toast("KI eingerichtet ✅"); settingsPage(); }
       catch (err) { sv.disabled = false; sv.textContent = "Speichern & testen"; toast("Fehler: " + err.message); }
     };
     $("#exp").onclick = () => {
@@ -562,7 +550,42 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
   window.addEventListener("beforeunload", ev => { if (exam && !exam.done) { ev.preventDefault(); ev.returnValue = ""; } });
   router();
 
+  let swReg = null;
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
+    navigator.serviceWorker.register("sw.js").then(r => { swReg = r; }).catch(() => {});
   }
+
+  // ---------- Update-Prüfung ----------
+  // Alle 10 Sekunden wird updates.js direkt vom Server geholt (ohne Cache) und die Versionsnummer verglichen.
+  const CHECK_MS = 10000;
+  const newer = (a, b) => { const x = a.split(".").map(Number), y = b.split(".").map(Number); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+  let pending = null;
+  async function checkUpdate() {
+    if (document.hidden || !navigator.onLine || location.protocol === "file:" || !VERSION) return;
+    try {
+      const r = await fetch("updates.js", { cache: "no-store" });
+      if (!r.ok) return;
+      const m = (await r.text()).match(/\bv:\s*"([\d.]+)"/);
+      if (m && newer(m[1], VERSION) && pending !== m[1]) { pending = m[1]; showUpdate(m[1]); }
+    } catch (e) {}
+  }
+  function showUpdate(v) {
+    // Auf der Startseite ohne laufende Prüfung sofort aktualisieren, sonst Hinweis anzeigen
+    const idle = (location.hash || "#/") === "#/" && !exam && !ai;
+    if (idle) return applyUpdate();
+    let b = $("#upd");
+    if (!b) { b = document.createElement("div"); b.id = "upd"; b.className = "updbar"; document.body.appendChild(b); }
+    b.innerHTML = `<span>🔄 Version ${esc(v)} ist da</span><button id="updgo">Jetzt aktualisieren</button>`;
+    $("#updgo").onclick = () => { if (exam && !exam.done && !confirm("Die laufende Prüfung geht dabei verloren. Trotzdem aktualisieren?")) return; exam = null; applyUpdate(); };
+  }
+  async function applyUpdate() {
+    toast("Update wird geladen …");
+    // Alle App-Dateien frisch vom Server holen, damit nichts Altes aus dem Browser-Speicher kommt
+    const files = ["./", "index.html", "styles.css", "manifest.webmanifest"].concat(Array.from(document.scripts).map(s => s.getAttribute("src")).filter(Boolean));
+    await Promise.all(files.map(f => fetch(f, { cache: "reload" }).catch(() => {})));
+    try { if (swReg) await swReg.update(); } catch (e) {}
+    location.reload();
+  }
+  setInterval(checkUpdate, CHECK_MS);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) checkUpdate(); });
 })();

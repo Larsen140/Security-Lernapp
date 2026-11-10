@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.3 vom 10.11.2026
+- **Version:** 1.4 vom 10.11.2026
 - **Fragen:** 351 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, bestanden ab 50 %
 
@@ -31,6 +31,11 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [ ] Mehr Fragen für „Umgang mit Menschen" und „Sicherheitstechnik" (die größten Prüfungsgebiete)
 
 ## Versionen
+
+### 1.4 – 10.11.2026
+- Die App prüft alle 10 Sekunden selbst, ob es ein Update gibt
+- Auf der Startseite wird ein Update sofort geladen, sonst erscheint oben ein Knopf „Jetzt aktualisieren"
+- KI-Lernhelfer nimmt nur noch Gemini-Schlüssel, die mit „AQ." beginnen (Claude- und AIza-Schlüssel werden nicht mehr angenommen)
 
 ### 1.3 – 10.11.2026
 - Neu: Seite „Was ist neu" in der App mit allen Updates

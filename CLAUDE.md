@@ -22,6 +22,10 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 6. Groß-/Kleinschreibung der Dateinamen beachten (GitHub Pages).
 7. **Änderungen sofort auf `main` pushen** – der Nutzer hat das ausdrücklich so gewünscht.
 
+## Update-Prüfung und KI
+- Die App holt alle 10 s `updates.js` mit `cache: "no-store"` (der Service Worker lässt solche Anfragen durch) und vergleicht die oberste Versionsnummer. Darum muss jede Änderung eine neue Version oben in `updates.js` bekommen, sonst merkt die App nichts.
+- KI-Lernhelfer: ausschließlich Google Gemini, nur Schlüssel mit Präfix `AQ.`.
+
 ## Speicher (localStorage)
 - `slapp-v1` – Fortschritt, eigene Fragen, Prüfungen, Markierungen, Einstellungen, zuletzt gesehene Version (`seenVersion`)
 - `slapp-ai` – KI-Schlüssel und Modell

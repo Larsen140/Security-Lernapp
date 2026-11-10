@@ -94,3 +94,5 @@ label{font-size:14px;font-weight:600}
 .aifoot{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
 .aifoot input{margin:0;flex:1}
 .version{display:block;width:100%;background:none;border:0;color:var(--muted);font:inherit;font-size:13px;text-align:center;padding:12px;cursor:pointer;text-decoration:underline}
+.updbar{position:fixed;left:12px;right:12px;top:calc(60px + env(safe-area-inset-top));z-index:30;max-width:736px;margin:0 auto;display:flex;gap:10px;align-items:center;justify-content:space-between;background:var(--primary-2);color:#fff;padding:10px 12px;border-radius:12px;box-shadow:var(--shadow);font-size:14px;font-weight:600}
+.updbar button{background:#fff;color:var(--primary-2);border:0;border-radius:9px;padding:8px 12px;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
