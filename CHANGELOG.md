@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.7 vom 10.11.2026
+- **Version:** 1.8 vom 10.11.2026
 - **Fragen:** 351 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, bestanden ab 50 %
 
@@ -31,6 +31,12 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [ ] Mehr Fragen für „Umgang mit Menschen" und „Sicherheitstechnik" (die größten Prüfungsgebiete)
 
 ## Versionen
+
+### 1.8 – 10.11.2026
+- Neues Design „Nachtschicht“: Nachtblau und Signalgelb (Warnweste, Absperrband), Schrift Barlow (liegt in der App, funktioniert offline)
+- Startseite: Lernstand als Absperrband, das sich füllt, Prozentzahl zählt hoch
+- Animationen: richtige Antworten leuchten auf, falsche wackeln, Stempel und Konfetti beim Prüfungsergebnis, sanfte Seitenwechsel. Bei „Bewegung reduzieren“ (iPhone-Einstellung) aus
+- KI-Chat neu: Antwort erscheint live (Streaming), Tipp-Anzeige, Stopp-Knopf, Folgefragen, Kopieren, „Neu“, bessere Formatierung von Listen und Fettdruck
 
 ### 1.7 – 10.11.2026
 - „KI testen“ macht bei Problemen eine genaue Fehlersuche: 9 verschiedene Anfragen an Google, jeweils mit Ergebnis

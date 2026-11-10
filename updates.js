@@ -2,6 +2,15 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "1.8", d: "2026-11-10", items: [
+      "Neues Design „Nachtschicht“: Nachtblau und Signalgelb wie Warnweste und Absperrband, neue Schrift",
+      "Startseite: Lernstand als Absperrband, das sich füllt",
+      "Animationen: richtige Antworten leuchten auf, falsche wackeln, Konfetti beim Bestehen der Prüfung",
+      "KI-Chat neu: Antwort erscheint live Wort für Wort, Stopp-Knopf, Folgefragen wie „Noch einfacher“, Kopieren, „Neu“ für einen neuen Chat",
+      "Chats bleiben erhalten, solange die App offen ist"
+    ]
+  },
+  {
     v: "1.7", d: "2026-11-10", items: [
       "„KI testen“ macht bei Problemen eine genaue Fehlersuche: 9 verschiedene Anfragen an Google, jeweils mit Ergebnis",
       "Neuer Knopf „Testergebnis kopieren“, damit du das Ergebnis weitergeben kannst"

@@ -69,12 +69,29 @@
     const T = c.total || 1;
     return `<div class="bar"><span class="g" style="width:${c.gruen / T * 100}%"></span><span class="y" style="width:${c.gelb / T * 100}%"></span><span class="r" style="width:${c.rot / T * 100}%"></span></div>`;
   }
-  function ring(pct) {
-    const r = 46, C = 2 * Math.PI * r, off = C * (1 - pct / 100);
-    return `<svg class="ring" viewBox="0 0 110 110"><circle cx="55" cy="55" r="${r}" fill="none" stroke="var(--grey)" stroke-width="10"/>
-      <circle cx="55" cy="55" r="${r}" fill="none" stroke="var(--green)" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${off}" transform="rotate(-90 55 55)"/>
-      <text x="55" y="61" text-anchor="middle" font-size="22" font-weight="800" fill="var(--text)">${Math.round(pct)}%</text></svg>`;
+  const calm = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function countUp(el, ms) {
+    if (!el) return; const to = +el.dataset.to;
+    if (calm() || !to) { el.textContent = to; return; }
+    const t0 = performance.now();
+    const step = t => { const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(to * e); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
   }
+  function confetti(n) {
+    if (calm()) return;
+    const box = document.createElement("div"); box.className = "confetti";
+    const cols = ["#FFC400", "#0D1B2E", "#3CC583", "#7FB0FF", "#ffffff", "#F0585D"];
+    for (let i = 0; i < (n || 90); i++) {
+      const c = document.createElement("i");
+      c.style.left = Math.random() * 100 + "vw"; c.style.background = cols[i % cols.length];
+      c.style.setProperty("--dx", (Math.random() * 160 - 80) + "px"); c.style.setProperty("--rot", (Math.random() * 900 - 450) + "deg");
+      c.style.animationDuration = (1.8 + Math.random() * 1.6) + "s"; c.style.animationDelay = Math.random() * .5 + "s";
+      if (i % 3 === 0) { c.style.width = "7px"; c.style.height = "7px"; c.style.borderRadius = "50%"; }
+      box.appendChild(c);
+    }
+    document.body.appendChild(box); setTimeout(() => box.remove(), 4500);
+  }
+  function enter() { const a = $("#app"); a.classList.remove("enter"); void a.offsetWidth; a.classList.add("enter"); }
   function setHeader(title, back) {
     $("#title").textContent = title;
     $("#back").style.visibility = back ? "visible" : "hidden";
@@ -93,10 +110,10 @@
     const pct = c.total ? c.gruen / c.total * 100 : 0;
     const wrong = all.filter(q => status(q) === 1).length;
     const lastExam = S.exams[S.exams.length - 1];
-    let html = `<div class="card hero">${ring(pct)}<div><h2 style="margin:0 0 4px">Dein Lernstand</h2>
-      <div class="muted">${c.gruen} von ${c.total} Fragen sicher</div>
-      <div class="muted">${c.neu} neu · ${c.rot} falsch · ${c.gelb} 1× richtig</div>
-      ${lastExam ? `<div class="muted">Letzte Prüfung: <b class="${lastExam.pass ? "pass" : "fail"}">${lastExam.pct}%</b></div>` : ""}</div></div>
+    let html = `<div class="badge"><div class="tape"><i id="tape" data-w="${pct}"></i></div>
+      <div class="top"><div class="title">Sachkunde § 34a GewO<b>Dein Lernstand</b></div><div class="pct"><span id="pctnum" data-to="${Math.round(pct)}">0</span><small>%</small></div></div>
+      <div class="stats"><div class="st-g"><b>${c.gruen}</b>sicher</div><div class="st-y"><b>${c.gelb}</b>1× richtig</div><div class="st-r"><b>${c.rot}</b>falsch</div><div><b>${c.neu}</b>neu</div></div>
+      ${lastExam ? `<div class="last">Letzte Prüfung: <b class="${lastExam.pass ? "pass" : "fail"}">${lastExam.pct} %, ${lastExam.pass ? "bestanden" : "nicht bestanden"}</b></div>` : ""}</div>
       <button class="btn" data-go="#/lernen/mix">▶ Weiterlernen (alle Themen)</button>
       <div class="grid2">
         <button class="tile" data-go="#/lernen/fehler"><span class="big">🔁</span><b>Fehler wiederholen</b><span class="muted">${wrong} Fragen</span></button>
@@ -105,7 +122,7 @@
         <button class="tile" data-go="#/eigene"><span class="big">✏️</span><b>Eigene Fragen</b><span class="muted">${S.custom.length} Fragen</span></button>
       </div>
       <button class="btn sec" id="aihome">🤖 KI-Lernhelfer fragen</button>
-      <h2 style="margin-top:20px">Sachgebiete</h2>`;
+      <div class="section-title">Sachgebiete</div>`;
     TOPICS.forEach(t => {
       const tc = counts(questionsOf(t.id));
       html += `<div class="card topic" data-go="#/thema/${t.id}"><div class="ico">${t.icon}</div><div class="info">
@@ -115,6 +132,9 @@
       <button class="btn ghost" style="margin-top:20px" data-go="#/einstellungen">⚙️ Einstellungen & Backup</button>
       ${VERSION ? `<button class="version" data-go="#/neu">Version ${esc(VERSION)} · Stand ${fmtDate(UPDATES[0].d)} · Was ist neu?</button>` : ""}`;
     $("#app").innerHTML = html; foot("");
+    // Absperrband füllt sich, Prozentzahl zählt hoch
+    requestAnimationFrame(() => requestAnimationFrame(() => { const t = $("#tape"); if (t) t.style.width = Math.max(t.dataset.w, 2) + "%"; }));
+    countUp($("#pctnum"), 1200);
     // Einmaliger Hinweis nach einem Update
     if (VERSION && S.seenVersion !== VERSION) {
       const first = !S.seenVersion && !Object.keys(S.prog).length;
@@ -187,6 +207,7 @@
       <div class="qhead"><span>Frage ${s.i + 1} von ${s.list.length} · <span class="pill">${t ? t.short : ""}</span>${q.own ? '<span class="pill">eigene</span>' : ""}</span>
       <span><button class="flagbtn" id="aiq">🤖 KI-Hilfe</button> <button class="flagbtn ${S.flags[q.id] ? "on" : ""}" id="flag">⭐ ${S.flags[q.id] ? "markiert" : "merken"}</button></span></div>
       <div class="card"><div class="qtext">${esc(q.q)}</div><div class="hint">${S.settings.showCount ? `<span class="count">👉 ${countText(q)}</span> · ${s.sel.length} gewählt` : "Wähle alle richtigen Antworten aus (eine oder mehrere)."}</div>`;
+    const just = s.just; s.just = false;
     s.order.forEach((ai, k) => {
       let cls = s.sel.includes(ai) ? "sel" : "";
       if (s.checked) {
@@ -194,6 +215,7 @@
         if (good && s.sel.includes(ai)) cls = "ok sel"; else if (good) cls = "ok miss"; else if (s.sel.includes(ai)) cls = "bad";
       }
       const mark = s.checked ? (q.c.includes(ai) ? "✓" : (s.sel.includes(ai) ? "✗" : "")) : (s.sel.includes(ai) ? "✓" : "");
+      if (just && (s.sel.includes(ai) || q.c.includes(ai))) cls += " just";
       html += `<button class="ans ${cls}" data-a="${ai}" ${s.checked ? "disabled" : ""}><span class="box">${mark}</span><span>${String.fromCharCode(65 + k)}) ${esc(q.a[ai])}</span></button>`;
     });
     if (s.checked) {
@@ -210,16 +232,17 @@
     });
     if (!s.checked) foot(`<button class="btn" id="check" ${s.sel.length ? "" : "disabled"}>Antwort prüfen</button>`);
     else foot(`<button class="btn" id="next">${s.i + 1 < s.list.length ? "Nächste Frage ▶" : "Auswertung ▶"}</button>`);
-    const ch = $("#check"); if (ch) ch.onclick = () => { s.checked = true; const ok = isRight(q, s.sel); if (ok) s.right++; record(q, ok); renderQ(); };
-    const nx = $("#next"); if (nx) nx.onclick = () => { s.i++; s.sel = []; s.checked = false; s.order = null; if (s.i >= s.list.length) learnDone(); else { renderQ(); window.scrollTo(0, 0); } };
+    const ch = $("#check"); if (ch) ch.onclick = () => { s.checked = true; s.just = true; const ok = isRight(q, s.sel); if (ok) s.right++; record(q, ok); renderQ(); };
+    const nx = $("#next"); if (nx) nx.onclick = () => { s.i++; s.sel = []; s.checked = false; s.order = null; if (s.i >= s.list.length) learnDone(); else { renderQ(); enter(); window.scrollTo(0, 0); } };
   }
   function isRight(q, sel) { return sel.length === q.c.length && sel.every(a => q.c.includes(a)); }
   function learnDone() {
     const s = session, pct = Math.round(s.right / s.list.length * 100);
     $("#app").innerHTML = `<div class="card" style="text-align:center"><h2>Runde geschafft!</h2>
-      <div class="result ${pct >= 50 ? "pass" : "fail"}">${s.right} / ${s.list.length}</div><p class="muted">${pct}% richtig</p>
+      <div class="result ${pct >= 50 ? "pass" : "fail"}"><span id="rnum" data-to="${s.right}">0</span> / ${s.list.length}</div><p class="muted">${pct} % richtig</p>
       <p>${pct >= 80 ? "Stark! Weiter so 💪" : pct >= 50 ? "Gut! Die falschen Fragen kommen bald wieder." : "Dranbleiben! Lies ggf. das Lernkapitel noch einmal."}</p></div>`;
     foot(`<button class="btn sec" data-go="${s.back}">Zurück</button><button class="btn" id="again">Neue Runde</button>`);
+    enter(); countUp($("#rnum"), 800); if (pct >= 80) setTimeout(() => confetti(60), 500);
     $("#again").onclick = () => router(true);
   }
 
@@ -297,8 +320,8 @@
     const e = exam, right = e.res.filter(Boolean).length, pct = Math.round(right / e.list.length * 100), pass = pct >= 50;
     setHeader("Ergebnis", "#/");
     const per = TOPICS.map(t => { const idx = e.list.map((q, i) => i).filter(i => e.list[i].topic === t.id); const r = idx.filter(i => e.res[i]).length; return { t, r, n: idx.length }; });
-    $("#app").innerHTML = `<div class="card" style="text-align:center"><div class="result ${pass ? "pass" : "fail"}">${pct}%</div>
-      <h2>${pass ? "Bestanden ✅" : "Nicht bestanden ❌"}</h2><p class="muted">${right} von ${e.list.length} Fragen vollständig richtig</p></div>
+    $("#app").innerHTML = `<div class="card" style="text-align:center;padding:24px 16px"><div class="result ${pass ? "pass" : "fail"}"><span id="epct" data-to="${pct}">0</span> %</div>
+      <div class="stamp ${pass ? "pass" : "fail"}">${pass ? "Bestanden" : "Nicht bestanden"}</div><p class="muted" style="margin-top:16px">${right} von ${e.list.length} Fragen vollständig richtig</p></div>
       <div class="card"><h3>Nach Sachgebiet</h3><table>${per.map(x => `<tr><td>${x.t.icon} ${esc(x.t.short)}</td><td class="n">${x.r}/${x.n}</td><td class="n ${x.r / x.n >= .5 ? "pass" : "fail"}">${Math.round(x.r / x.n * 100)}%</td></tr>`).join("")}</table></div>
       <div class="card"><h3>Fragen ansehen</h3><div class="muted" style="margin-bottom:8px">Grün = richtig, Rot = falsch. Tippe auf eine Nummer.</div>
       <div class="navgrid">${e.list.map((_, i) => `<button data-n="${i}" class="${e.res[i] ? "ok" : "no"}">${i + 1}</button>`).join("")}</div></div>
@@ -306,6 +329,8 @@
     document.querySelectorAll(".navgrid button").forEach(b => b.onclick = () => showReview(+b.dataset.n));
     foot(`<button class="btn sec" data-go="#/lernen/fehler">Fehler üben</button><button class="btn" id="newExam">Neue Prüfung</button>`);
     $("#newExam").onclick = startExam;
+    if (!exam.shown) { exam.shown = true; countUp($("#epct"), 900); if (pass) setTimeout(() => confetti(120), 1100); }
+    else $("#epct").textContent = pct;
   }
   function showReview(i) {
     const e = exam, q = e.list[i], sel = e.ans[i];
@@ -341,59 +366,136 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     } else t += `\n(Ich habe die Frage noch nicht beantwortet.)`;
     return t;
   }
-  function md(s) {
-    return esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/^#{1,4} (.+)$/gm, "<b>$1</b>").replace(/^[-*] (.+)$/gm, "• $1").replace(/\n/g, "<br>");
+  // Kleine Markdown-Darstellung: Absätze, Listen, Überschriften, fett, kursiv, Code
+  function md(src) {
+    const inline = t => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s).,!?:;]|$)/g, "$1<i>$2</i>");
+    const out = []; let list = null, para = [];
+    const flushP = () => { if (para.length) { out.push("<p>" + para.map(inline).join("<br>") + "</p>"); para = []; } };
+    const flushL = () => { if (list) { out.push(`<${list.t}>` + list.items.map(x => "<li>" + inline(x) + "</li>").join("") + `</${list.t}>`); list = null; } };
+    String(src || "").replace(/\r/g, "").split("\n").forEach(line => {
+      const ul = line.match(/^\s*[-*•]\s+(.*)/), ol = line.match(/^\s*\d+[.)]\s+(.*)/), h = line.match(/^\s*#{1,4}\s+(.*)/);
+      if (ul || ol) { flushP(); const t = ul ? "ul" : "ol"; if (!list || list.t !== t) { flushL(); list = { t, items: [] }; } list.items.push((ul || ol)[1]); }
+      else if (h) { flushP(); flushL(); out.push("<h4>" + inline(h[1]) + "</h4>"); }
+      else if (!line.trim()) { flushP(); flushL(); }
+      else { flushL(); para.push(line); }
+    });
+    flushP(); flushL(); return out.join("");
   }
+  // Chats bleiben erhalten, solange die App offen ist: einer pro Frage und einer allgemein
+  const chats = {};
+  const FOLLOW = ["Noch einfacher bitte", "Beispiel aus dem Dienst", "Gib mir eine Eselsbrücke", "Welcher Paragraph gilt?", "Stell mir eine Übungsfrage dazu"];
   function openAI(q, sel, order) {
-    ai = { ctx: qContext(q, sel, order), msgs: [], busy: false, answered: !!sel, hasQ: !!q };
-    renderAI();
+    const key = q ? q.id + (sel ? "-a" : "") : "general";
+    const old = chats[key];
+    ai = old && !old.busy ? old : { key, ctx: qContext(q, sel, order), msgs: [], busy: false, answered: !!sel, hasQ: !!q, qText: q ? q.q : "" };
+    chats[key] = ai;
+    $("#ai").style.display = "flex"; renderAI();
+    setTimeout(() => { const t = $("#aiin"); if (t && aiConf().key && !matchMedia("(pointer:coarse)").matches) t.focus(); }, 350);
   }
-  function closeAI() { $("#ai").style.display = "none"; ai = null; }
-  function renderAI() {
-    const box = $("#ai"), conf = aiConf();
-    box.style.display = "flex";
-    let quick = "";
-    if (ai.hasQ) quick = ai.answered
-      ? ["Erklär mir die Lösung einfach", "Warum ist meine Antwort falsch?", "Gib mir eine Eselsbrücke"]
+  function closeAI() { if (ai && ai.ctl) ai.ctl.abort(); $("#ai").style.display = "none"; ai = null; }
+  function setStatus(t, live) { const el = $("#aistat"); if (el) { el.textContent = t; el.className = live ? "live" : ""; } }
+  function starters() {
+    if (!ai.hasQ) return ["Erklär mir Notwehr einfach", "§ 127 StPO und § 229 BGB – was ist der Unterschied?", "Was darf ich als Sicherheitskraft, was nicht?", "Wie lerne ich am besten für die Prüfung?"];
+    return ai.answered ? ["Erklär mir die Lösung einfach", "Warum ist meine Antwort falsch?", "Gib mir eine Eselsbrücke", "Beispiel aus dem Dienst"]
       : ["Gib mir einen Tipp (ohne Lösung)", "Erklär mir die Begriffe", "Sag mir die Lösung"];
-    else quick = ["Erklär mir Notwehr einfach", "Unterschied § 127 StPO und § 229 BGB?", "Wie lerne ich am besten für die Prüfung?"];
-    let body = "";
+  }
+  function msgHTML(m, i) {
+    if (m.role === "user") return `<div class="msg user">${esc(m.content)}</div>`;
+    return `<div class="msg assistant${m.err ? " err" : ""}" data-i="${i}">${md(m.content)}${m.err ? "" : `<button class="copy" data-copy="${i}">Kopieren</button>`}</div>`;
+  }
+  function renderAI() {
+    if (!ai) return;
+    const box = $("#ai"), conf = aiConf(), b = box.querySelector(".aibody");
+    const ctx = ai.ctx ? `<details class="aictx"><summary>Zur Frage: ${esc(ai.qText.length > 70 ? ai.qText.slice(0, 70) + " …" : ai.qText)}</summary><div class="ctxbody">${md(ai.ctx)}</div></details>` : "";
     if (!conf.key) {
       const prompt = (ai.ctx ? ai.ctx + "\n\n" : "") + "Bitte hilf mir als Lernhelfer für die Sachkundeprüfung § 34a GewO" + (ai.hasQ && !ai.answered ? " – gib mir zuerst nur einen Tipp, nicht die Lösung." : ".");
-      body = `<p>Die KI kann auf zwei Arten helfen:</p>
-        <a class="btn" id="aigem" target="_blank" rel="noopener" href="https://gemini.google.com/app">💬 In Gemini öffnen (kostenlos mit Google-Konto)</a>
-        <p class="muted" style="margin-top:-2px">Die Frage wird dabei automatisch kopiert. In Gemini einfach ins Eingabefeld tippen und „Einfügen“ wählen.</p>
+      b.innerHTML = ctx + `<div class="welcome"><b>Noch kein KI-Schlüssel</b>Du kannst die Frage trotzdem einer KI stellen.</div>
+        <a class="btn" id="aigem" target="_blank" rel="noopener" href="https://gemini.google.com/app">💬 In Gemini öffnen</a>
+        <p class="muted" style="margin-top:-2px">Die Frage wird dabei kopiert. In Gemini ins Eingabefeld tippen und „Einfügen“ wählen. Ein kostenloses Google-Konto genügt.</p>
         <button class="btn sec" id="aicopy">📋 Nur Frage kopieren</button>
-        <p class="muted">Oder richte unter <a href="#/einstellungen" id="aiset">Einstellungen</a> einen eigenen KI-Schlüssel ein, dann chattest du direkt hier in der App.</p>`;
-      box.querySelector(".aibody").innerHTML = (ai.ctx ? `<div class="aictx">${md(ai.ctx)}</div>` : "") + body;
-      box.querySelector(".aifoot").style.display = "none";
+        <p class="muted">Mit einem eigenen Gemini-Schlüssel (beginnt mit „AQ.“) chattest du direkt hier. Einrichten unter <a href="#/einstellungen" id="aiset">Einstellungen</a>.</p>`;
+      box.querySelector(".aifoot").style.display = "none"; $("#aiquick").innerHTML = ""; setStatus("nicht eingerichtet");
       const full = AI_SYSTEM + "\n\n" + prompt;
       const copy = () => navigator.clipboard ? navigator.clipboard.writeText(full) : Promise.reject();
       $("#aigem").onclick = () => { copy().then(() => toast("Frage kopiert – in Gemini einfügen")).catch(() => toast("Kopieren nicht möglich – bitte „Nur Frage kopieren“ nutzen")); };
-      const cp = $("#aicopy"); if (cp) cp.onclick = () => { navigator.clipboard.writeText(AI_SYSTEM + "\n\n" + prompt).then(() => toast("Kopiert – jetzt in der KI einfügen")).catch(() => toast("Kopieren nicht möglich")); };
+      $("#aicopy").onclick = () => copy().then(() => toast("Kopiert – jetzt in der KI einfügen")).catch(() => toast("Kopieren nicht möglich"));
       $("#aiset").onclick = () => closeAI();
       return;
     }
-    body = (ai.ctx ? `<div class="aictx">${md(ai.ctx)}</div>` : `<p class="muted">Stell mir jede Frage zum Prüfungsstoff.</p>`);
-    ai.msgs.forEach(m => { body += `<div class="msg ${m.role}">${m.role === "user" ? esc(m.content) : md(m.content)}</div>`; });
-    if (ai.busy) body += `<div class="msg assistant muted">schreibt …</div>`;
-    if (!ai.msgs.length) body += `<div class="quick">${quick.map(x => `<button class="flagbtn" data-q="${esc(x)}">${esc(x)}</button>`).join("")}</div>`;
-    const b = box.querySelector(".aibody"); b.innerHTML = body; b.scrollTop = b.scrollHeight;
+    let body = ctx;
+    if (!ai.msgs.length) body += `<div class="welcome"><b>${ai.hasQ ? "Frag mich zu dieser Frage" : "Frag mich alles zum Prüfungsstoff"}</b>${ai.hasQ && !ai.answered ? "Ich gebe dir erst Tipps, die Lösung nur, wenn du danach fragst." : "Ich erkläre einfach, mit Beispielen und Paragraphen."}</div>`;
+    ai.msgs.forEach((m, i) => { body += msgHTML(m, i); });
+    if (ai.busy && !ai.streaming) body += `<div class="typing" aria-label="KI schreibt"><i></i><i></i><i></i></div>`;
+    b.innerHTML = body; b.scrollTop = b.scrollHeight;
     box.querySelector(".aifoot").style.display = "flex";
-    b.querySelectorAll("[data-q]").forEach(x => x.onclick = () => askAI(x.dataset.q));
+    const chips = ai.busy ? [] : ai.msgs.length ? (ai.msgs[ai.msgs.length - 1].err ? ["Nochmal versuchen"] : FOLLOW) : starters();
+    $("#aiquick").innerHTML = chips.map(x => `<button data-q="${esc(x)}">${esc(x)}</button>`).join("");
+    $("#aiquick").querySelectorAll("[data-q]").forEach(x => x.onclick = () => x.dataset.q === "Nochmal versuchen" ? retryAI() : askAI(x.dataset.q));
+    b.querySelectorAll("[data-copy]").forEach(x => x.onclick = () => navigator.clipboard.writeText(ai.msgs[+x.dataset.copy].content).then(() => toast("Antwort kopiert")).catch(() => toast("Kopieren nicht möglich")));
+    const send = $("#aisend"); send.classList.toggle("stop", !!ai.busy); send.innerHTML = ai.busy ? "■" : "↑"; send.setAttribute("aria-label", ai.busy ? "Stoppen" : "Senden");
+    send.disabled = !ai.busy && !$("#aiin").value.trim();
+    setStatus(ai.busy ? "schreibt …" : "Gemini · bereit", !ai.busy);
+  }
+  function retryAI() {
+    if (!ai || ai.busy) return;
+    const last = ai.msgs[ai.msgs.length - 1]; if (last && last.err) ai.msgs.pop();
+    const u = ai.msgs.pop(); if (u && u.role === "user") askAI(u.content);
   }
   async function askAI(text) {
     if (!text || !ai || ai.busy) return;
-    const conf = aiConf();
-    ai.msgs.push({ role: "user", content: text }); ai.busy = true; renderAI();
-    const msgs = ai.msgs.map((m, i) => ({ role: m.role, content: i === 0 && ai.ctx ? ai.ctx + "\n\n" + m.content : m.content }));
+    const chat = ai, conf = aiConf();
+    chat.msgs.push({ role: "user", content: text }); chat.busy = true; chat.streaming = false; renderAI();
+    const msgs = chat.msgs.map((m, i) => ({ role: m.role, content: i === 0 && chat.ctx ? chat.ctx + "\n\n" + m.content : m.content }));
+    const ctl = chat.ctl = new AbortController();
+    const out = { role: "assistant", content: "" };
+    let el = null;
+    const onText = t => {
+      if (chat !== ai) { out.content = t; return; }
+      if (!el) { chat.streaming = true; chat.msgs.push(out); renderAI(); el = $("#ai .aibody").querySelector(`[data-i="${chat.msgs.length - 1}"]`); el.classList.add("streaming"); }
+      out.content = t; el.innerHTML = md(t);
+      const b = $("#ai .aibody"); if (b.scrollHeight - b.scrollTop - b.clientHeight < 160) b.scrollTop = b.scrollHeight;
+    };
     try {
-      const txt = await callAI(conf, msgs);
-      if (ai) ai.msgs.push({ role: "assistant", content: txt || "(keine Antwort)" });
+      let txt;
+      try { txt = await streamAI(conf, msgs, onText, ctl.signal); }
+      catch (err) {
+        if (ctl.signal.aborted) throw err;
+        if (out.content) throw err; // mitten im Text abgebrochen
+        txt = await callAI(conf, msgs); // ohne Streaming, mit Modellwechsel
+      }
+      out.content = txt || out.content || "(keine Antwort)";
+      if (!chat.msgs.includes(out)) chat.msgs.push(out);
     } catch (err) {
-      if (ai) ai.msgs.push({ role: "assistant", content: "⚠️ Die KI ist gerade nicht erreichbar: " + err.message + (navigator.onLine ? "" : " (Du bist offline.)") + "\n\nTipp: Unter Einstellungen → „KI testen“ siehst du, woran es liegt." });
+      if (ctl.signal.aborted) { if (out.content) { out.content += "\n\n*(gestoppt)*"; if (!chat.msgs.includes(out)) chat.msgs.push(out); } }
+      else if (out.content) { out.content += "\n\n*(Verbindung abgebrochen)*"; if (!chat.msgs.includes(out)) chat.msgs.push(out); }
+      else chat.msgs.push({ role: "assistant", err: true, content: "⚠️ **Die KI antwortet gerade nicht.**\n" + err.message + (navigator.onLine ? "" : " Du bist offline.") + "\n\nTipp nochmal auf „Nochmal versuchen“. Hilft das nicht: Einstellungen → „KI testen“." });
     }
-    if (ai) { ai.busy = false; renderAI(); }
+    chat.busy = false; chat.streaming = false; chat.ctl = null;
+    if (chat === ai) renderAI();
+  }
+  // Antwort Stück für Stück empfangen (Server-Sent Events)
+  async function streamAI(conf, msgs, onText, signal) {
+    const way = conf.way || conf.auth || "query", model = conf.model;
+    const r = await gemFetch(GEM + model + ":streamGenerateContent?alt=sse", { method: "POST", headers: { "content-type": "application/json" }, body: genBody(model, msgs, true), signal }, conf.key, way, 120000);
+    if (!r.ok) { const d = await r.json().catch(() => ({})); throw apiError(r, d); }
+    if (!r.body || !r.body.getReader) throw new Error("Streaming nicht möglich");
+    const rd = r.body.getReader(), dec = new TextDecoder(); let buf = "", txt = "", finish = "";
+    for (;;) {
+      const { value, done } = await rd.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split(/\r?\n/); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        let d; try { d = JSON.parse(line.slice(5)); } catch (e) { continue; }
+        if (d.error) throw new Error(d.error.message || "Fehler beim Streaming");
+        const c = d.candidates && d.candidates[0]; if (!c) continue;
+        if (c.finishReason) finish = c.finishReason;
+        const add = ((c.content && c.content.parts) || []).filter(p => !p.thought).map(p => p.text || "").join("");
+        if (add) { txt += add; onText(txt); }
+      }
+    }
+    if (!txt) throw new Error("Leere Antwort" + (finish ? " (" + finish + ")" : ""));
+    return txt;
   }
   // KI-Anbieter: ausschließlich Google Gemini
   const GEM = "https://generativelanguage.googleapis.com/v1beta/";
@@ -408,6 +510,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     if (way === "simple") delete h["content-type"];
     opt.headers = h;
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms || 60000);
+    if (opt.signal) { if (opt.signal.aborted) ctl.abort(); else opt.signal.addEventListener("abort", () => ctl.abort()); }
     opt.signal = ctl.signal;
     return fetch(url, opt).finally(() => clearTimeout(t));
   }
@@ -531,14 +634,24 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
   }
   function initAIPanel() {
     const box = document.createElement("div"); box.id = "ai"; box.className = "aipanel";
-    box.innerHTML = `<div class="aiwin"><div class="aihead"><b>🤖 KI-Lernhelfer</b><button class="flagbtn" id="aiclose">✕ Schließen</button></div>
+    box.innerHTML = `<div class="aiwin" role="dialog" aria-label="KI-Lernhelfer"><div class="aihead"><div class="aiava">🦺</div><div class="who"><b>KI-Lernhelfer</b><span id="aistat"></span></div>
+      <button id="ainew" aria-label="Neuer Chat">Neu</button><button id="aiclose" aria-label="Schließen">✕</button></div>
       <div class="aibody"></div>
-      <form class="aifoot" id="aiform"><input id="aiin" placeholder="Deine Frage an die KI …" autocomplete="off"><button class="btn" style="width:auto;margin:0">Senden</button></form>
-      <div class="muted" style="font-size:12px;padding:0 14px 10px">KI-Antworten können Fehler enthalten. Im Zweifel gilt der Gesetzestext.</div></div>`;
+      <div class="quick" id="aiquick"></div>
+      <form class="aifoot" id="aiform"><textarea id="aiin" rows="1" placeholder="Frag mich etwas …" enterkeyhint="send"></textarea><button class="aisend" id="aisend" aria-label="Senden">↑</button></form>
+      <div class="ainote">KI-Antworten können Fehler enthalten. Im Zweifel gilt der Gesetzestext.</div></div>`;
     document.body.appendChild(box);
+    const inp = $("#aiin"), grow = () => { inp.style.height = "auto"; inp.style.height = Math.min(inp.scrollHeight, 130) + "px"; if (ai && !ai.busy) $("#aisend").disabled = !inp.value.trim(); };
     $("#aiclose").onclick = closeAI;
+    $("#ainew").onclick = () => { if (!ai) return; if (ai.ctl) ai.ctl.abort(); ai.msgs = []; ai.busy = false; renderAI(); toast("Neuer Chat"); };
     box.onclick = ev => { if (ev.target === box) closeAI(); };
-    $("#aiform").onsubmit = ev => { ev.preventDefault(); const v = $("#aiin").value.trim(); $("#aiin").value = ""; askAI(v); };
+    inp.oninput = grow;
+    inp.onkeydown = ev => { if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); $("#aiform").requestSubmit(); } };
+    $("#aiform").onsubmit = ev => {
+      ev.preventDefault();
+      if (ai && ai.busy) { if (ai.ctl) ai.ctl.abort(); return; }
+      const v = inp.value.trim(); if (!v) return; inp.value = ""; grow(); askAI(v);
+    };
   }
 
   // ---------- Eigene Fragen ----------
@@ -665,6 +778,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     else if (parts[0] === "einstellungen") settingsPage();
     else if (parts[0] === "neu") updatesPage();
     else home();
+    enter();
   }
   document.addEventListener("click", ev => {
     const el = ev.target.closest("[data-go]"); if (!el) return;

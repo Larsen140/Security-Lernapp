@@ -30,6 +30,12 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 - Gemini-Anfragen probieren drei Wege (`header` = x-goog-api-key, `query` = ?key=, `simple` = ?key= ohne JSON-Header, also ohne CORS-Preflight). Grund: iPhone-Safari meldete „Load failed“. Der funktionierende Weg und das Modell werden in `slapp-ai` gespeichert (`way`, `model`, `models`). Diagnose: Einstellungen → „KI testen“.
 - Erfahrung 10.11.2026: Die neuesten Modelle (gemini-3.8/3.7-flash) meldeten „high demand“; Überlastungs-Antworten kommen auf dem iPhone teils als Netzwerkfehler an. Lösung war der automatische Modellwechsel (`models`-Liste, wird bei „KI testen“ aufgefrischt). Mit echtem AQ-Schlüssel funktioniert Weg „query“.
 
+## Design
+- Thema „Nachtschicht“: `--ink` Nachtblau, `--signal` Signalgelb, Absperrband-Streifen `--stripe` (Kopfzeile, Lernstand, Fortschritt, Chat-Kopf). Hell = „Tagschicht“.
+- Schrift Barlow / Barlow Condensed (OFL) als `font-*.woff2` im Root, in `sw.js` `FILES` eingetragen.
+- Animationen nur bei Nutzeraktionen; `prefers-reduced-motion` schaltet sie ab.
+- KI-Chat streamt über `streamGenerateContent?alt=sse`; bei Fehler ohne Text Rückfall auf `callAI` (mit Modellwechsel).
+
 ## Speicher (localStorage)
 - `slapp-v1` – Fortschritt, eigene Fragen, Prüfungen, Markierungen, Einstellungen, zuletzt gesehene Version (`seenVersion`)
 - `slapp-ai` – KI-Schlüssel und Modell
