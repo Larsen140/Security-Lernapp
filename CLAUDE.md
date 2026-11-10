@@ -20,7 +20,7 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 4. **Niemals KI-Schlüssel ins Repo schreiben** – das Repo ist öffentlich. Schlüssel liegen nur im localStorage (`slapp-ai`), nicht im Backup.
 5. Prüfungsverteilung (`examCount`) muss 82 ergeben: RdöSuO 6, GewO 5, DS 5, BGB 10, StGB 11, UmW 5, UVV 6, UmM 18, SiT 16.
 6. Groß-/Kleinschreibung der Dateinamen beachten (GitHub Pages).
-7. **Änderungen sofort auf `main` pushen** – der Nutzer hat das ausdrücklich so gewünscht.
+7. **Änderungen sofort auf `main` pushen** – der Nutzer hat das ausdrücklich so gewünscht. Danach NICHT auf das Pages-Deployment warten, sondern direkt antworten.
 
 ## Update-Prüfung und KI
 - Die App holt alle 10 s `updates.js` mit `cache: "no-store"` (der Service Worker lässt solche Anfragen durch) und vergleicht die oberste Versionsnummer. Darum muss jede Änderung eine neue Version oben in `updates.js` bekommen, sonst merkt die App nichts.
