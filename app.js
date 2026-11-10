@@ -391,44 +391,117 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       const txt = await callAI(conf, msgs);
       if (ai) ai.msgs.push({ role: "assistant", content: txt || "(keine Antwort)" });
     } catch (err) {
-      if (ai) ai.msgs.push({ role: "assistant", content: "⚠️ Die KI ist gerade nicht erreichbar: " + err.message + (navigator.onLine ? "" : " (Du bist offline.)") });
+      if (ai) ai.msgs.push({ role: "assistant", content: "⚠️ Die KI ist gerade nicht erreichbar: " + err.message + (navigator.onLine ? "" : " (Du bist offline.)") + "\n\nTipp: Unter Einstellungen → „KI testen“ siehst du, woran es liegt." });
     }
     if (ai) { ai.busy = false; renderAI(); }
   }
   // KI-Anbieter: ausschließlich Google Gemini
   const GEM = "https://generativelanguage.googleapis.com/v1beta/";
-  function gemFetch(url, opt, key, mode) {
-    opt = Object.assign({}, opt); opt.headers = Object.assign({}, opt.headers || {});
-    if (mode === "query") url += (url.includes("?") ? "&" : "?") + "key=" + encodeURIComponent(key);
-    else opt.headers["x-goog-api-key"] = key;
-    return fetch(url, opt);
+  // Übertragungswege. Safari auf dem iPhone blockiert manche Anfragen mit „Load failed“,
+  // deshalb werden mehrere Wege probiert; der funktionierende wird gespeichert.
+  // "simple" schickt den Schlüssel in der Adresse und keinen JSON-Header -> keine Vorab-Anfrage (Preflight).
+  const WAYS = ["header", "query", "simple"];
+  function gemFetch(url, opt, key, way, ms) {
+    opt = Object.assign({}, opt); const h = Object.assign({}, opt.headers || {});
+    if (way === "header") h["x-goog-api-key"] = key;
+    else url += (url.includes("?") ? "&" : "?") + "key=" + encodeURIComponent(key);
+    if (way === "simple") delete h["content-type"];
+    opt.headers = h;
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms || 60000);
+    opt.signal = ctl.signal;
+    return fetch(url, opt).finally(() => clearTimeout(t));
   }
-  async function callAI(conf, msgs) {
-    const r = await gemFetch(GEM + conf.model + ":generateContent", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: AI_SYSTEM }] },
-        contents: msgs.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-        generationConfig: { maxOutputTokens: 1500 }
-      })
-    }, conf.key, conf.auth);
-    const d = await r.json();
-    if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
+  const SAFETY = ["HARASSMENT", "HATE_SPEECH", "SEXUALLY_EXPLICIT", "DANGEROUS_CONTENT"].map(c => ({ category: "HARM_CATEGORY_" + c, threshold: "BLOCK_ONLY_HIGH" }));
+  function thinkingFor(model) {
+    if (/gemini-2\.5/.test(model)) return { thinkingBudget: /pro/.test(model) ? 128 : 0 };
+    if (/gemini-[3-9]/.test(model)) return { thinkingLevel: "low" };
+    return null;
+  }
+  function genBody(model, msgs, withThinking) {
+    const gc = { maxOutputTokens: 8192 }, th = withThinking && thinkingFor(model);
+    if (th) gc.thinkingConfig = th;
+    return JSON.stringify({
+      system_instruction: { parts: [{ text: AI_SYSTEM }] },
+      contents: msgs.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+      generationConfig: gc, safetySettings: SAFETY
+    });
+  }
+  function apiError(r, d) {
+    const msg = (d && d.error && d.error.message) || ("Fehler " + r.status);
+    const e = new Error(r.status === 429 ? "Kontingent erschöpft oder zu viele Anfragen (" + msg + ")" : msg);
+    e.status = r.status; return e;
+  }
+  function netError(err) {
+    if (err.name === "AbortError") return Object.assign(new Error("Keine Antwort innerhalb von 60 Sekunden"), { net: true });
+    return Object.assign(new Error("Verbindung zu Google blockiert (" + err.message + ")"), { net: true });
+  }
+  // Eine Anfrage an ein Modell auf einem Weg
+  async function genOnce(conf, model, way, msgs) {
+    let r;
+    try { r = await gemFetch(GEM + model + ":generateContent", { method: "POST", headers: { "content-type": "application/json" }, body: genBody(model, msgs, true) }, conf.key, way); }
+    catch (err) { throw netError(err); }
+    let d = await r.json().catch(() => ({}));
+    // Falls das Modell die Denk-Einstellung nicht kennt: ohne noch einmal
+    if (r.status === 400 && /thinking/i.test((d.error && d.error.message) || "")) {
+      try { r = await gemFetch(GEM + model + ":generateContent", { method: "POST", headers: { "content-type": "application/json" }, body: genBody(model, msgs, false) }, conf.key, way); }
+      catch (err) { throw netError(err); }
+      d = await r.json().catch(() => ({}));
+    }
+    if (!r.ok) throw apiError(r, d);
+    if (d.promptFeedback && d.promptFeedback.blockReason) throw new Error("Google hat die Frage blockiert (" + d.promptFeedback.blockReason + ")");
     const c = d.candidates && d.candidates[0];
-    return ((c && c.content && c.content.parts) || []).map(p => p.text || "").join("");
+    const txt = ((c && c.content && c.content.parts) || []).filter(p => !p.thought).map(p => p.text || "").join("").trim();
+    if (!txt) throw new Error("Leere Antwort von Google" + (c && c.finishReason ? " (" + c.finishReason + ")" : ""));
+    return txt;
   }
-  async function pickModel(key) {
-    let auth = "header", r = await gemFetch(GEM + "models?pageSize=1000", {}, key, auth).catch(() => null);
-    if (!r || !r.ok) { auth = "query"; r = await gemFetch(GEM + "models?pageSize=1000", {}, key, auth); }
-    const d = await r.json();
-    if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
-    pickModel.auth = auth;
-    const ok = (d.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name);
-    const ver = n => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
-    const stable = ok.filter(n => /gemini-[\d.]+-flash$/.test(n)).sort((x, y) => ver(y) - ver(x));
-    const flash = ok.filter(n => /flash/.test(n) && !/lite|image|tts|live|audio/.test(n)).sort((x, y) => ver(y) - ver(x));
-    return stable[0] || flash[0] || ok.find(n => /gemini/.test(n));
+  // Probiert den gespeicherten Weg/Modell zuerst, dann die anderen. Merkt sich, was funktioniert.
+  async function callAI(conf, msgs, log) {
+    const ways = [conf.way || conf.auth].filter(w => WAYS.includes(w)).concat(WAYS).filter((w, i, a) => a.indexOf(w) === i);
+    const models = [conf.model].concat(conf.models || []).filter((m, i, a) => m && a.indexOf(m) === i).slice(0, 4);
+    let last = null;
+    for (const model of models) {
+      for (const way of ways) {
+        try {
+          const txt = await genOnce(conf, model, way, msgs);
+          if (log) log(`✅ ${model.replace(/^models\//, "")} · Weg „${way}“: funktioniert`);
+          if (way !== conf.way || model !== conf.model) { conf.way = way; conf.model = model; aiSave(conf); }
+          return txt;
+        } catch (err) {
+          last = err;
+          if (log) log(`❌ ${model.replace(/^models\//, "")} · Weg „${way}“: ${err.message}`);
+          if (!err.net) break; // Google hat geantwortet -> anderer Weg hilft nicht, nächstes Modell
+        }
+      }
+      if (last && !last.net && !(last.status === 404 || last.status === 429 || last.status >= 500)) break;
+    }
+    throw last || new Error("Unbekannter Fehler");
+  }
+  async function listModels(key) {
+    let last;
+    for (const way of WAYS) {
+      try {
+        const r = await gemFetch(GEM + "models?pageSize=1000", {}, key, way, 20000);
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw apiError(r, d);
+        const ok = (d.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name);
+        const ver = n => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
+        const byVer = (x, y) => ver(y) - ver(x);
+        const stable = ok.filter(n => /gemini-[\d.]+-flash$/.test(n)).sort(byVer);
+        const flash = ok.filter(n => /flash/.test(n) && !/lite|image|tts|live|audio|thinking/.test(n)).sort(byVer);
+        const lite = ok.filter(n => /gemini-[\d.]+-flash-lite$/.test(n)).sort(byVer);
+        const list = stable.concat(flash, lite, ok.filter(n => /gemini/.test(n))).filter((m, i, a) => a.indexOf(m) === i);
+        return { way, models: list };
+      } catch (err) { last = err.status ? err : netError(err); if (err.status) break; }
+    }
+    throw last;
+  }
+  // Einrichten: Modelle holen und eine echte Testfrage schicken
+  async function setupAI(key, log) {
+    const { way, models } = await listModels(key);
+    if (!models.length) throw new Error("Kein passendes Gemini-Modell gefunden");
+    const conf = { key, provider: "gemini", way, model: models[0], models: models.slice(0, 6) };
+    await callAI(conf, [{ role: "user", content: "Antworte nur mit: OK" }], log);
+    aiSave(conf); return conf;
   }
   function initAIPanel() {
     const box = document.createElement("div"); box.id = "ai"; box.className = "aipanel";
@@ -487,7 +560,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       <div class="card"><h2>🤖 KI-Lernhelfer</h2>
       <p class="muted"><b>Ohne Einrichtung:</b> Der Knopf „KI-Hilfe“ kopiert die Frage und öffnet Google Gemini (gemini.google.com, kostenloses Google-Konto genügt).<br>
       <b>Mit eigenem Schlüssel:</b> Chat direkt in der App. Es funktioniert nur ein <b>Google-Gemini-Schlüssel, der mit „AQ.“ beginnt</b> (kostenlos erhältlich auf <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>). Der Schlüssel bleibt nur auf diesem Gerät und ist nicht im Backup.</p>
-      ${conf.key ? `<p>✅ Eingerichtet · Google Gemini · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
+      ${conf.key ? `<p>✅ Eingerichtet · Google Gemini · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><button class="btn sec" id="aitest">🔍 KI testen</button><div id="ailog" class="muted" style="font-size:13px"></div><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
         : `<input type="password" id="aikey" placeholder="Gemini-Schlüssel (AQ.…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
       <div class="card"><h2>💾 Backup</h2><p class="muted">Dein Fortschritt wird nur auf diesem Gerät gespeichert. Mit einem Backup kannst du ihn sichern oder auf ein anderes Gerät übertragen.</p>
       <button class="btn sec" id="exp">Backup herunterladen</button>
@@ -498,12 +571,24 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     foot("");
     $("#showc").onchange = ev => { S.settings.showCount = ev.target.checked; save(); toast("Gespeichert"); };
     const del = $("#aidel"); if (del) del.onclick = () => { aiSave({}); settingsPage(); toast("Schlüssel entfernt"); };
+    const logTo = el => line => { el.innerHTML += esc(line) + "<br>"; };
     const sv = $("#aisave"); if (sv) sv.onclick = async () => {
       const key = $("#aikey").value.trim(); if (!key) return toast("Bitte Schlüssel eingeben");
       if (!isGemKey(key)) return toast("Nur Gemini-Schlüssel, die mit „AQ.“ beginnen");
-      sv.disabled = true; sv.textContent = "Teste …";
-      try { const model = await pickModel(key); if (!model) throw new Error("Kein Modell gefunden"); aiSave({ key, model, provider: "gemini", auth: pickModel.auth || "header" }); toast("KI eingerichtet ✅"); settingsPage(); }
-      catch (err) { sv.disabled = false; sv.textContent = "Speichern & testen"; toast("Fehler: " + err.message); }
+      sv.disabled = true; sv.textContent = "Teste … (bis zu 1 Min.)";
+      let box = $("#ailog0"); if (!box) { box = document.createElement("div"); box.id = "ailog0"; box.className = "muted"; box.style.fontSize = "13px"; sv.after(box); }
+      box.innerHTML = "";
+      try { await setupAI(key, logTo(box)); toast("KI eingerichtet ✅"); settingsPage(); }
+      catch (err) { sv.disabled = false; sv.textContent = "Speichern & testen"; box.innerHTML += "<b>Fehler: " + esc(err.message) + "</b>"; toast("Fehler: " + err.message); }
+    };
+    const tb = $("#aitest"); if (tb) tb.onclick = async () => {
+      const box = $("#ailog"); box.innerHTML = "Teste … (bis zu 1 Min.)<br>"; tb.disabled = true;
+      try { const c = aiConf(); const lm = await listModels(c.key).catch(e => { box.innerHTML += "Modellliste: " + esc(e.message) + "<br>"; return null; });
+        if (lm) { c.models = lm.models.slice(0, 6); aiSave(c); box.innerHTML += "Modellliste: ✅ " + lm.models.length + " Modelle (Weg „" + lm.way + "“)<br>"; }
+        const t = await callAI(c, [{ role: "user", content: "Antworte nur mit: OK" }], logTo(box));
+        box.innerHTML += "<b>Antwort: " + esc(t.slice(0, 80)) + "</b> – alles in Ordnung ✅"; }
+      catch (err) { box.innerHTML += "<b>Fehler: " + esc(err.message) + "</b>"; }
+      tb.disabled = false;
     };
     $("#exp").onclick = () => {
       const blob = new Blob([JSON.stringify(S)], { type: "application/json" });

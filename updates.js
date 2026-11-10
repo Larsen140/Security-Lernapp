@@ -2,6 +2,14 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "1.6", d: "2026-11-10", items: [
+      "KI-Lernhelfer repariert: Auf dem iPhone kam „Load failed“. Die App probiert jetzt mehrere Verbindungswege zu Google und merkt sich den, der funktioniert",
+      "„Speichern & testen“ schickt eine echte Testfrage an die KI",
+      "Neuer Knopf „KI testen“ in den Einstellungen zeigt genau, was klappt und was nicht",
+      "Fragen zu Notwehr oder Waffen werden von Google nicht mehr so schnell blockiert, und bei überlasteten Modellen wird automatisch ein anderes genommen"
+    ]
+  },
+  {
     v: "1.5", d: "2026-11-10", items: [
       "Updates kommen jetzt zuverlässig an: Die App fragt immer direkt beim Server nach statt alte Kopien aus dem Browser-Speicher zu nehmen",
       "„KI-Hilfe“ ohne eigenen Schlüssel öffnet jetzt Google Gemini statt Claude und kopiert die Frage automatisch"

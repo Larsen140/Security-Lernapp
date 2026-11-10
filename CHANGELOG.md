@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.5 vom 10.11.2026
+- **Version:** 1.6 vom 10.11.2026
 - **Fragen:** 351 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, bestanden ab 50 %
 
@@ -31,6 +31,12 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [ ] Mehr Fragen für „Umgang mit Menschen" und „Sicherheitstechnik" (die größten Prüfungsgebiete)
 
 ## Versionen
+
+### 1.6 – 10.11.2026
+- KI-Lernhelfer repariert: Auf dem iPhone kam „Load failed“ (Safari hat die Anfrage an Google blockiert). Die App probiert jetzt mehrere Verbindungswege und merkt sich den funktionierenden
+- „Speichern & testen“ schickt eine echte Testfrage an die KI
+- Neuer Knopf „KI testen“ in den Einstellungen zeigt genau, was klappt und was nicht
+- Sicherheitsfilter gelockert (nur noch hohe Stufe blockiert), automatischer Wechsel auf ein anderes Modell bei Überlastung, Zeitgrenze 60 Sekunden
 
 ### 1.5 – 10.11.2026
 - Updates kommen jetzt zuverlässig an: Die App fragt immer direkt beim Server nach statt alte Kopien aus dem Browser-Speicher zu nehmen (GitHub Pages erlaubt sonst bis zu 10 Minuten alte Dateien)

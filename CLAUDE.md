@@ -27,6 +27,7 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 - Der Service Worker holt jede Datei mit `cache: "no-cache"` (GitHub Pages setzt `max-age=600`, sonst kämen bis zu 10 Min. alte Dateien).
 - Veröffentlichen über GitHub Pages dauert zurzeit oft 3–5 Minuten (`gh run list -R Larsen140/Security-Lernapp`).
 - KI-Lernhelfer: ausschließlich Google Gemini – mit Schlüssel nur Präfix `AQ.`, ohne Schlüssel öffnet „KI-Hilfe“ gemini.google.com und kopiert die Frage. Keine Claude-Links mehr.
+- Gemini-Anfragen probieren drei Wege (`header` = x-goog-api-key, `query` = ?key=, `simple` = ?key= ohne JSON-Header, also ohne CORS-Preflight). Grund: iPhone-Safari meldete „Load failed“. Der funktionierende Weg und das Modell werden in `slapp-ai` gespeichert (`way`, `model`, `models`). Diagnose: Einstellungen → „KI testen“.
 
 ## Speicher (localStorage)
 - `slapp-v1` – Fortschritt, eigene Fragen, Prüfungen, Markierungen, Einstellungen, zuletzt gesehene Version (`seenVersion`)
