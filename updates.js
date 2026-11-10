@@ -2,6 +2,12 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "1.5", d: "2026-11-10", items: [
+      "Updates kommen jetzt zuverlässig an: Die App fragt immer direkt beim Server nach statt alte Kopien aus dem Browser-Speicher zu nehmen",
+      "„KI-Hilfe“ ohne eigenen Schlüssel öffnet jetzt Google Gemini statt Claude und kopiert die Frage automatisch"
+    ]
+  },
+  {
     v: "1.4", d: "2026-11-10", items: [
       "Die App prüft alle 10 Sekunden selbst, ob es ein Update gibt",
       "Auf der Startseite wird ein Update sofort geladen, sonst erscheint oben ein Knopf „Jetzt aktualisieren“",

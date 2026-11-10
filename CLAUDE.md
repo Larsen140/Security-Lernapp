@@ -24,7 +24,9 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 
 ## Update-Prüfung und KI
 - Die App holt alle 10 s `updates.js` mit `cache: "no-store"` (der Service Worker lässt solche Anfragen durch) und vergleicht die oberste Versionsnummer. Darum muss jede Änderung eine neue Version oben in `updates.js` bekommen, sonst merkt die App nichts.
-- KI-Lernhelfer: ausschließlich Google Gemini, nur Schlüssel mit Präfix `AQ.`.
+- Der Service Worker holt jede Datei mit `cache: "no-cache"` (GitHub Pages setzt `max-age=600`, sonst kämen bis zu 10 Min. alte Dateien).
+- Veröffentlichen über GitHub Pages dauert zurzeit oft 3–5 Minuten (`gh run list -R Larsen140/Security-Lernapp`).
+- KI-Lernhelfer: ausschließlich Google Gemini – mit Schlüssel nur Präfix `AQ.`, ohne Schlüssel öffnet „KI-Hilfe“ gemini.google.com und kopiert die Frage. Keine Claude-Links mehr.
 
 ## Speicher (localStorage)
 - `slapp-v1` – Fortschritt, eigene Fragen, Prüfungen, Markierungen, Einstellungen, zuletzt gesehene Version (`seenVersion`)

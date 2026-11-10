@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.4 vom 10.11.2026
+- **Version:** 1.5 vom 10.11.2026
 - **Fragen:** 351 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, bestanden ab 50 %
 
@@ -31,6 +31,10 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [ ] Mehr Fragen für „Umgang mit Menschen" und „Sicherheitstechnik" (die größten Prüfungsgebiete)
 
 ## Versionen
+
+### 1.5 – 10.11.2026
+- Updates kommen jetzt zuverlässig an: Die App fragt immer direkt beim Server nach statt alte Kopien aus dem Browser-Speicher zu nehmen (GitHub Pages erlaubt sonst bis zu 10 Minuten alte Dateien)
+- „KI-Hilfe" ohne eigenen Schlüssel öffnet jetzt Google Gemini statt Claude und kopiert die Frage automatisch
 
 ### 1.4 – 10.11.2026
 - Die App prüft alle 10 Sekunden selbst, ob es ein Update gibt

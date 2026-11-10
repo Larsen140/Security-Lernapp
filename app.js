@@ -361,11 +361,15 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     if (!conf.key) {
       const prompt = (ai.ctx ? ai.ctx + "\n\n" : "") + "Bitte hilf mir als Lernhelfer für die Sachkundeprüfung § 34a GewO" + (ai.hasQ && !ai.answered ? " – gib mir zuerst nur einen Tipp, nicht die Lösung." : ".");
       body = `<p>Die KI kann auf zwei Arten helfen:</p>
-        <a class="btn" target="_blank" rel="noopener" href="https://claude.ai/new?q=${encodeURIComponent(AI_SYSTEM + "\n\n" + prompt)}">💬 In Claude öffnen (kostenlos mit Konto)</a>
-        <button class="btn sec" id="aicopy">📋 Frage für die KI kopieren</button>
+        <a class="btn" id="aigem" target="_blank" rel="noopener" href="https://gemini.google.com/app">💬 In Gemini öffnen (kostenlos mit Google-Konto)</a>
+        <p class="muted" style="margin-top:-2px">Die Frage wird dabei automatisch kopiert. In Gemini einfach ins Eingabefeld tippen und „Einfügen“ wählen.</p>
+        <button class="btn sec" id="aicopy">📋 Nur Frage kopieren</button>
         <p class="muted">Oder richte unter <a href="#/einstellungen" id="aiset">Einstellungen</a> einen eigenen KI-Schlüssel ein, dann chattest du direkt hier in der App.</p>`;
       box.querySelector(".aibody").innerHTML = (ai.ctx ? `<div class="aictx">${md(ai.ctx)}</div>` : "") + body;
       box.querySelector(".aifoot").style.display = "none";
+      const full = AI_SYSTEM + "\n\n" + prompt;
+      const copy = () => navigator.clipboard ? navigator.clipboard.writeText(full) : Promise.reject();
+      $("#aigem").onclick = () => { copy().then(() => toast("Frage kopiert – in Gemini einfügen")).catch(() => toast("Kopieren nicht möglich – bitte „Nur Frage kopieren“ nutzen")); };
       const cp = $("#aicopy"); if (cp) cp.onclick = () => { navigator.clipboard.writeText(AI_SYSTEM + "\n\n" + prompt).then(() => toast("Kopiert – jetzt in der KI einfügen")).catch(() => toast("Kopieren nicht möglich")); };
       $("#aiset").onclick = () => closeAI();
       return;
@@ -481,7 +485,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="showc" style="width:22px;height:22px;margin:0" ${S.settings.showCount ? "checked" : ""}> Anzahl der richtigen Antworten bei jeder Frage anzeigen</label>
       <p class="muted">In der echten IHK-Prüfung wird das nicht angezeigt. Schalte es zum Üben ein und für eine realistische Prüfung aus.</p></div>
       <div class="card"><h2>🤖 KI-Lernhelfer</h2>
-      <p class="muted"><b>Ohne Einrichtung:</b> Der Knopf „KI-Hilfe“ öffnet die Frage in Claude (claude.ai, kostenloses Konto genügt).<br>
+      <p class="muted"><b>Ohne Einrichtung:</b> Der Knopf „KI-Hilfe“ kopiert die Frage und öffnet Google Gemini (gemini.google.com, kostenloses Google-Konto genügt).<br>
       <b>Mit eigenem Schlüssel:</b> Chat direkt in der App. Es funktioniert nur ein <b>Google-Gemini-Schlüssel, der mit „AQ.“ beginnt</b> (kostenlos erhältlich auf <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>). Der Schlüssel bleibt nur auf diesem Gerät und ist nicht im Backup.</p>
       ${conf.key ? `<p>✅ Eingerichtet · Google Gemini · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
         : `<input type="password" id="aikey" placeholder="Gemini-Schlüssel (AQ.…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
