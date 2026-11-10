@@ -16,6 +16,10 @@
   const AIKEY = "slapp-ai";
   function aiConf() { try { return JSON.parse(localStorage.getItem(AIKEY)) || {}; } catch (e) { return {}; } }
   function aiSave(c) { try { localStorage.setItem(AIKEY, JSON.stringify(c)); } catch (e) {} }
+  // Versionsstand aus updates.js (neueste Version steht oben)
+  const UPDATES = window.SL_UPDATES || [];
+  const VERSION = UPDATES.length ? UPDATES[0].v : "";
+  const fmtDate = d => new Date(d + "T12:00:00").toLocaleDateString("de-DE");
   const countText = q => q.c.length === 1 ? "1 Antwort ist richtig" : q.c.length + " Antworten sind richtig";
 
   // ---------- Daten ----------
@@ -103,8 +107,15 @@
         <div class="name">${esc(t.name)}</div><div class="muted">${tc.gruen}/${tc.total} sicher · ${t.examCount} Fragen in der Prüfung</div>${bar(tc)}</div></div>`;
     });
     html += `<div class="legend"><span><i class="g"></i>sicher (2× richtig)</span><span><i class="y"></i>1× richtig</span><span><i class="r"></i>zuletzt falsch</span><span><i style="background:var(--grey)"></i>neu</span></div>
-      <button class="btn ghost" style="margin-top:20px" data-go="#/einstellungen">⚙️ Einstellungen & Backup</button>`;
+      <button class="btn ghost" style="margin-top:20px" data-go="#/einstellungen">⚙️ Einstellungen & Backup</button>
+      ${VERSION ? `<button class="version" data-go="#/neu">Version ${esc(VERSION)} · Stand ${fmtDate(UPDATES[0].d)} · Was ist neu?</button>` : ""}`;
     $("#app").innerHTML = html; foot("");
+    // Einmaliger Hinweis nach einem Update
+    if (VERSION && S.seenVersion !== VERSION) {
+      const first = !S.seenVersion && !Object.keys(S.prog).length;
+      S.seenVersion = VERSION; save();
+      if (!first) toast("Update auf Version " + VERSION + " – tippe unten auf „Was ist neu?“");
+    }
     $("#aihome").onclick = () => openAI(null);
   }
 
@@ -492,7 +503,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       <label class="btn sec" style="display:block">Backup laden<input type="file" id="imp" accept="application/json,.json" style="display:none"></label></div>
       <div class="card"><h2>📲 Als App installieren</h2><p class="muted"><b>iPhone (Safari):</b> Teilen-Symbol → „Zum Home-Bildschirm“.<br><b>Android (Chrome):</b> Menü ⋮ → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“.<br>Danach funktioniert die App auch offline.</p></div>
       <div class="card"><h2>🗑 Zurücksetzen</h2><button class="btn danger" id="reset">Lernfortschritt löschen</button><p class="muted">Eigene Fragen bleiben erhalten.</p></div>
-      <div class="card"><p class="muted">Security LernApp · ${allQuestions().length} Fragen. Die Fragen sind selbst formuliert auf Grundlage der Gesetze (GG, GewO, BewachV, DSGVO, BDSG, BGB, StGB, StPO, WaffG, DGUV). Ohne Gewähr: Im Zweifel gilt der aktuelle Gesetzestext.</p></div>`;
+      <div class="card"><p class="muted">Security LernApp · <a href="#/neu">Version ${esc(VERSION)}</a> · ${allQuestions().length} Fragen. Die Fragen sind selbst formuliert auf Grundlage der Gesetze (GG, GewO, BewachV, DSGVO, BDSG, BGB, StGB, StPO, WaffG, DGUV). Ohne Gewähr: Im Zweifel gilt der aktuelle Gesetzestext.</p></div>`;
     foot("");
     $("#showc").onchange = ev => { S.settings.showCount = ev.target.checked; save(); toast("Gespeichert"); };
     const del = $("#aidel"); if (del) del.onclick = () => { aiSave({}); settingsPage(); toast("Schlüssel entfernt"); };
@@ -514,6 +525,18 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     $("#reset").onclick = () => { if (confirm("Wirklich den gesamten Lernfortschritt löschen?")) { S.prog = {}; S.exams = []; S.flags = {}; save(); toast("Fortschritt gelöscht"); go("#/"); } };
   }
 
+  // ---------- Was ist neu ----------
+  function updatesPage() {
+    clearTimer();
+    setHeader("Was ist neu", "#/");
+    let h = `<div class="card"><p class="muted" style="margin:0">Du nutzt <b>Version ${esc(VERSION)}</b>. Steht hier eine ältere Nummer als erwartet, schließe die App einmal ganz und öffne sie neu.</p></div>`;
+    UPDATES.forEach((u, i) => {
+      h += `<div class="card"><h3 style="margin-top:0">Version ${esc(u.v)} <span class="muted" style="font-weight:400">· ${fmtDate(u.d)}</span>${i === 0 ? ' <span class="pill">aktuell</span>' : ""}</h3>
+        <ul style="margin:0;padding-left:20px">${u.items.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>`;
+    });
+    $("#app").innerHTML = h; foot("");
+  }
+
   // ---------- Router ----------
   function router(force) {
     const h = location.hash || "#/";
@@ -526,6 +549,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     else if (parts[0] === "pruefung") { if (parts[1] === "laeuft") examRender(); else if (parts[1] === "ergebnis") examResult(); else examIntro(); }
     else if (parts[0] === "eigene") customPage();
     else if (parts[0] === "einstellungen") settingsPage();
+    else if (parts[0] === "neu") updatesPage();
     else home();
   }
   document.addEventListener("click", ev => {

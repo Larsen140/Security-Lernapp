@@ -93,3 +93,4 @@ label{font-size:14px;font-weight:600}
 .quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .aifoot{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line)}
 .aifoot input{margin:0;flex:1}
+.version{display:block;width:100%;background:none;border:0;color:var(--muted);font:inherit;font-size:13px;text-align:center;padding:12px;cursor:pointer;text-decoration:underline}
