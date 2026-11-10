@@ -28,6 +28,7 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 - Veröffentlichen über GitHub Pages dauert zurzeit oft 3–5 Minuten (`gh run list -R Larsen140/Security-Lernapp`).
 - KI-Lernhelfer: ausschließlich Google Gemini – mit Schlüssel nur Präfix `AQ.`, ohne Schlüssel öffnet „KI-Hilfe“ gemini.google.com und kopiert die Frage. Keine Claude-Links mehr.
 - Gemini-Anfragen probieren drei Wege (`header` = x-goog-api-key, `query` = ?key=, `simple` = ?key= ohne JSON-Header, also ohne CORS-Preflight). Grund: iPhone-Safari meldete „Load failed“. Der funktionierende Weg und das Modell werden in `slapp-ai` gespeichert (`way`, `model`, `models`). Diagnose: Einstellungen → „KI testen“.
+- Erfahrung 10.11.2026: Die neuesten Modelle (gemini-3.8/3.7-flash) meldeten „high demand“; Überlastungs-Antworten kommen auf dem iPhone teils als Netzwerkfehler an. Lösung war der automatische Modellwechsel (`models`-Liste, wird bei „KI testen“ aufgefrischt). Mit echtem AQ-Schlüssel funktioniert Weg „query“.
 
 ## Speicher (localStorage)
 - `slapp-v1` – Fortschritt, eigene Fragen, Prüfungen, Markierungen, Einstellungen, zuletzt gesehene Version (`seenVersion`)
