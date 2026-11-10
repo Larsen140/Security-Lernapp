@@ -376,19 +376,25 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     if (ai) { ai.busy = false; renderAI(); }
   }
   // Anbieter am Schlüssel erkennen: Google Gemini (AIza…) oder Anthropic Claude (sk-ant-…)
-  const providerOf = key => /^AIza/.test(key) ? "gemini" : "anthropic";
+  const providerOf = key => /^sk-ant-/.test(key) ? "anthropic" : "gemini";
   const GEM = "https://generativelanguage.googleapis.com/v1beta/";
+  function gemFetch(url, opt, key, mode) {
+    opt = Object.assign({}, opt); opt.headers = Object.assign({}, opt.headers || {});
+    if (mode === "query") url += (url.includes("?") ? "&" : "?") + "key=" + encodeURIComponent(key);
+    else opt.headers["x-goog-api-key"] = key;
+    return fetch(url, opt);
+  }
   async function callAI(conf, msgs) {
     if ((conf.provider || providerOf(conf.key)) === "gemini") {
-      const r = await fetch(GEM + conf.model + ":generateContent", {
+      const r = await gemFetch(GEM + conf.model + ":generateContent", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-goog-api-key": conf.key },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: AI_SYSTEM }] },
           contents: msgs.map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
           generationConfig: { maxOutputTokens: 1500 }
         })
-      });
+      }, conf.key, conf.auth);
       const d = await r.json();
       if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
       const c = d.candidates && d.candidates[0];
@@ -405,9 +411,11 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
   }
   async function pickModel(key) {
     if (providerOf(key) === "gemini") {
-      const r = await fetch(GEM + "models?pageSize=1000", { headers: { "x-goog-api-key": key } });
+      let auth = "header", r = await gemFetch(GEM + "models?pageSize=1000", {}, key, auth).catch(() => null);
+      if (!r || !r.ok) { auth = "query"; r = await gemFetch(GEM + "models?pageSize=1000", {}, key, auth); }
       const d = await r.json();
       if (!r.ok) throw new Error((d.error && d.error.message) || ("Fehler " + r.status));
+      pickModel.auth = auth;
       const ok = (d.models || []).filter(m => (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name);
       const ver = n => parseFloat((n.match(/gemini-(\d+(?:\.\d+)?)/) || [0, 0])[1]);
       const stable = ok.filter(n => /gemini-[\d.]+-flash$/.test(n)).sort((x, y) => ver(y) - ver(x));
@@ -476,9 +484,9 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       <p class="muted">In der echten IHK-Prüfung wird das nicht angezeigt. Schalte es zum Üben ein und für eine realistische Prüfung aus.</p></div>
       <div class="card"><h2>🤖 KI-Lernhelfer</h2>
       <p class="muted"><b>Ohne Einrichtung:</b> Der Knopf „KI-Hilfe“ öffnet die Frage in Claude (claude.ai, kostenloses Konto genügt).<br>
-      <b>Mit eigenem Schlüssel:</b> Chat direkt in der App. Es funktioniert ein <b>Google-Gemini-Schlüssel</b> (beginnt mit „AIza…“, kostenlos erhältlich auf <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>) oder ein <b>Claude-Schlüssel</b> (beginnt mit „sk-ant-…“, von <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>, kostenpflichtig). Die App erkennt automatisch, welcher Schlüssel es ist. Der Schlüssel bleibt nur auf diesem Gerät und ist nicht im Backup.</p>
+      <b>Mit eigenem Schlüssel:</b> Chat direkt in der App. Es funktioniert ein <b>Google-Gemini-Schlüssel</b> (beginnt z. B. mit „AIza…“ oder „AQ.…“, kostenlos erhältlich auf <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>) oder ein <b>Claude-Schlüssel</b> (beginnt mit „sk-ant-…“, von <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>, kostenpflichtig). Die App erkennt automatisch, welcher Schlüssel es ist. Der Schlüssel bleibt nur auf diesem Gerät und ist nicht im Backup.</p>
       ${conf.key ? `<p>✅ Eingerichtet · ${(conf.provider || providerOf(conf.key)) === "gemini" ? "Google Gemini" : "Claude"} · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
-        : `<input type="password" id="aikey" placeholder="Gemini-Schlüssel (AIza…) oder Claude-Schlüssel (sk-ant-…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
+        : `<input type="password" id="aikey" placeholder="Gemini-Schlüssel oder Claude-Schlüssel (sk-ant-…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
       <div class="card"><h2>💾 Backup</h2><p class="muted">Dein Fortschritt wird nur auf diesem Gerät gespeichert. Mit einem Backup kannst du ihn sichern oder auf ein anderes Gerät übertragen.</p>
       <button class="btn sec" id="exp">Backup herunterladen</button>
       <label class="btn sec" style="display:block">Backup laden<input type="file" id="imp" accept="application/json,.json" style="display:none"></label></div>
@@ -491,7 +499,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     const sv = $("#aisave"); if (sv) sv.onclick = async () => {
       const key = $("#aikey").value.trim(); if (!key) return toast("Bitte Schlüssel eingeben");
       sv.disabled = true; sv.textContent = "Teste …";
-      try { const model = await pickModel(key); if (!model) throw new Error("Kein Modell gefunden"); aiSave({ key, model, provider: providerOf(key) }); toast("KI eingerichtet ✅"); settingsPage(); }
+      try { const model = await pickModel(key); if (!model) throw new Error("Kein Modell gefunden"); aiSave({ key, model, provider: providerOf(key), auth: pickModel.auth || "header" }); toast("KI eingerichtet ✅"); settingsPage(); }
       catch (err) { sv.disabled = false; sv.textContent = "Speichern & testen"; toast("Fehler: " + err.message); }
     };
     $("#exp").onclick = () => {

@@ -1,5 +1,5 @@
 // Offline-Unterstützung: Dateien werden zwischengespeichert.
-const CACHE = "slapp-v3";
+const CACHE = "slapp-v4";
 const FILES = ["./", "index.html", "styles.css", "app.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png",
   "01-rdoeso.js", "02-gewo.js", "03-ds.js", "04-bgb.js", "05-stgb.js", "06-umw.js", "07-dguv.js", "08-umm.js", "09-sit.js"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
