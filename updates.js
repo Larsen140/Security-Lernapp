@@ -2,6 +2,13 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "1.9", d: "2026-11-10", items: [
+      "Prozentanzeige verbessert: Fragen, die du 1× richtig hast, zählen jetzt halb. Die Zahl bewegt sich also schon nach der ersten richtigen Antwort",
+      "Unter 10 % mit einer Nachkommastelle (z. B. 1,4 %), damit kleine Fortschritte sichtbar sind",
+      "Das Absperrband zeigt bei 0 % nichts mehr an, „1× richtig“ erscheint als heller Teil"
+    ]
+  },
+  {
     v: "1.8", d: "2026-11-10", items: [
       "Neues Design „Nachtschicht“: Nachtblau und Signalgelb wie Warnweste und Absperrband, neue Schrift",
       "Startseite: Lernstand als Absperrband, das sich füllt",

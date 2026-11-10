@@ -66,6 +66,7 @@ h3{font:700 20px/1.2 var(--display);margin:16px 0 6px}
 @media (prefers-color-scheme:dark){.badge{background:linear-gradient(160deg,#152B4E,#0E1D35);box-shadow:0 0 0 1px #22375A}}
 .tape{height:16px;background:rgba(255,255,255,.08);position:relative;overflow:hidden}
 .tape>i{position:absolute;inset:0 auto 0 0;width:0;background:var(--stripe);background-size:28px 28px;transition:width 1.4s var(--ease)}
+.tape>i.half{opacity:.4;transition:width 1.4s var(--ease),left 1.4s var(--ease)}
 .badge .top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:16px 18px 0}
 .badge .title{font:600 16px/1.2 var(--body);color:rgba(255,255,255,.7)}
 .badge .title b{display:block;font:700 26px/1.05 var(--display);color:#fff;margin-top:2px}

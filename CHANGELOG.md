@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.8 vom 10.11.2026
+- **Version:** 1.9 vom 10.11.2026
 - **Fragen:** 351 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, bestanden ab 50 %
 
@@ -31,6 +31,12 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [ ] Mehr Fragen für „Umgang mit Menschen" und „Sicherheitstechnik" (die größten Prüfungsgebiete)
 
 ## Versionen
+
+### 1.9 – 10.11.2026
+- Prozentanzeige verbessert: „1× richtig“ zählt halb, „sicher“ voll. Vorher zählten nur sichere Fragen (2× hintereinander richtig), dadurch blieb die Anzeige lange bei 0 %
+- Unter 10 % mit einer Nachkommastelle, damit kleine Fortschritte sichtbar sind (eine Frage = 0,28 %)
+- Absperrband zeigte bei 0 % trotzdem ein Stück an – behoben; „1× richtig“ erscheint als heller Teil
+- Getestet: 0 %, 1× richtig, sicher, falsch beantwortet und 100 % ergeben jeweils den richtigen Wert
 
 ### 1.8 – 10.11.2026
 - Neues Design „Nachtschicht“: Nachtblau und Signalgelb (Warnweste, Absperrband), Schrift Barlow (liegt in der App, funktioniert offline)

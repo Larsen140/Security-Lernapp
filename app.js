@@ -71,10 +71,11 @@
   }
   const calm = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   function countUp(el, ms) {
-    if (!el) return; const to = +el.dataset.to;
-    if (calm() || !to) { el.textContent = to; return; }
+    if (!el) return; const to = +el.dataset.to, dec = +(el.dataset.dec || 0);
+    const fmt = v => dec ? v.toFixed(dec).replace(".", ",") : String(Math.round(v));
+    if (calm() || !to) { el.textContent = fmt(to); return; }
     const t0 = performance.now();
-    const step = t => { const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(to * e); if (k < 1) requestAnimationFrame(step); };
+    const step = t => { const k = Math.min(1, (t - t0) / ms), e = 1 - Math.pow(1 - k, 3); el.textContent = fmt(to * e); if (k < 1) requestAnimationFrame(step); };
     requestAnimationFrame(step);
   }
   function confetti(n) {
@@ -107,11 +108,13 @@
     clearTimer();
     setHeader("Security LernApp", null);
     const all = allQuestions(), c = counts(all);
-    const pct = c.total ? c.gruen / c.total * 100 : 0;
+    // Fortschritt: „sicher“ zählt voll, „1× richtig“ halb. So bewegt sich die Zahl schon nach der ersten richtigen Antwort.
+    const pctSafe = c.total ? c.gruen / c.total * 100 : 0, pctHalf = c.total ? c.gelb / 2 / c.total * 100 : 0;
+    const pct = pctSafe + pctHalf;
     const wrong = all.filter(q => status(q) === 1).length;
     const lastExam = S.exams[S.exams.length - 1];
-    let html = `<div class="badge"><div class="tape"><i id="tape" data-w="${pct}"></i></div>
-      <div class="top"><div class="title">Sachkunde § 34a GewO<b>Dein Lernstand</b></div><div class="pct"><span id="pctnum" data-to="${Math.round(pct)}">0</span><small>%</small></div></div>
+    let html = `<div class="badge"><div class="tape"><i id="tape" data-w="${pctSafe}"></i><i id="tape2" class="half" data-l="${pctSafe}" data-w="${pctHalf}"></i></div>
+      <div class="top"><div class="title">Sachkunde § 34a GewO<b>Dein Lernstand</b></div><div class="pct"><span id="pctnum" data-to="${pct}" data-dec="${pct > 0 && pct < 10 ? 1 : 0}">0</span><small>%</small></div></div>
       <div class="stats"><div class="st-g"><b>${c.gruen}</b>sicher</div><div class="st-y"><b>${c.gelb}</b>1× richtig</div><div class="st-r"><b>${c.rot}</b>falsch</div><div><b>${c.neu}</b>neu</div></div>
       ${lastExam ? `<div class="last">Letzte Prüfung: <b class="${lastExam.pass ? "pass" : "fail"}">${lastExam.pct} %, ${lastExam.pass ? "bestanden" : "nicht bestanden"}</b></div>` : ""}</div>
       <button class="btn" data-go="#/lernen/mix">▶ Weiterlernen (alle Themen)</button>
@@ -133,7 +136,10 @@
       ${VERSION ? `<button class="version" data-go="#/neu">Version ${esc(VERSION)} · Stand ${fmtDate(UPDATES[0].d)} · Was ist neu?</button>` : ""}`;
     $("#app").innerHTML = html; foot("");
     // Absperrband füllt sich, Prozentzahl zählt hoch
-    requestAnimationFrame(() => requestAnimationFrame(() => { const t = $("#tape"); if (t) t.style.width = Math.max(t.dataset.w, 2) + "%"; }));
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const t = $("#tape"), t2 = $("#tape2"); if (!t) return;
+      t.style.width = t.dataset.w + "%"; t2.style.left = t2.dataset.l + "%"; t2.style.width = t2.dataset.w + "%";
+    }));
     countUp($("#pctnum"), 1200);
     // Einmaliger Hinweis nach einem Update
     if (VERSION && S.seenVersion !== VERSION) {

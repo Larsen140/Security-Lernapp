@@ -36,6 +36,9 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 - Animationen nur bei Nutzeraktionen; `prefers-reduced-motion` schaltet sie ab.
 - KI-Chat streamt über `streamGenerateContent?alt=sse`; bei Fehler ohne Text Rückfall auf `callAI` (mit Modellwechsel).
 
+## Lernstand
+- Prozentzahl auf der Startseite = (sicher + 0,5 × „1× richtig“) / alle Fragen; unter 10 % mit einer Nachkommastelle. Absperrband: voller Teil = sicher, heller Teil = halbe Punkte.
+
 ## Speicher (localStorage)
 - `slapp-v1` – Fortschritt, eigene Fragen, Prüfungen, Markierungen, Einstellungen, zuletzt gesehene Version (`seenVersion`)
 - `slapp-ai` – KI-Schlüssel und Modell
