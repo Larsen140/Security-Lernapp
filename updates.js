@@ -2,6 +2,13 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "1.10", d: "2026-11-11", items: [
+      "100 neue Fragen, jetzt 451 insgesamt. Mehr Fragen u. a. zu besonders schwerem Diebstahl, Begünstigung, Putativnotwehr, Schikaneverbot, Waffentransport, Brandschutz, Schließanlagen, Funk und Kommunikation",
+      "Prüfungssimulation wertet jetzt wie die IHK seit Juli 2025: Teilpunkte für jede richtig angekreuzte Antwort, bestanden ab 50 % der Punkte",
+      "Korrigiert: Ein Lichtbild ist auf dem Dienstausweis nicht vorgeschrieben; den Ausweis zeigt man Behörden wie Polizei oder Ordnungsamt; nach einem Waffengebrauch wird immer auch die Polizei informiert"
+    ]
+  },
+  {
     v: "1.9", d: "2026-11-10", items: [
       "Prozentanzeige verbessert: Fragen, die du 1× richtig hast, zählen jetzt halb. Die Zahl bewegt sich also schon nach der ersten richtigen Antwort",
       "Unter 10 % mit einer Nachkommastelle (z. B. 1,4 %), damit kleine Fortschritte sichtbar sind",

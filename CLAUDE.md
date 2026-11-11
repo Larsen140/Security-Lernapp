@@ -36,6 +36,13 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 - Animationen nur bei Nutzeraktionen; `prefers-reduced-motion` schaltet sie ab.
 - KI-Chat streamt über `streamGenerateContent?alt=sse`; bei Fehler ohne Text Rückfall auf `callAI` (mit Modellwechsel).
 
+## Prüfungssimulation
+- Wertung wie IHK seit 1. Juli 2025: 82 Fragen, Punkte je Frage = Anzahl richtiger Antworten (Teilpunkte), bestanden ab 50 % der Punkte (IHK: 60 von 120). Falsche Kreuze: nicht offiziell geregelt, App zieht je falschem Kreuz 1 Punkt der Frage ab (min. 0), Funktion `points()` in `app.js`.
+
+## Fragen
+- Neue Fragen immer am ENDE der Liste anhängen: Die ID ist `sachgebiet-index`, daran hängt der Lernstand der Nutzer.
+- KATI-Listen dürfen nur zur Themensuche und zum Gegenprüfen genutzt werden, nie wörtlich übernommen (Repo ist öffentlich).
+
 ## Lernstand
 - Prozentzahl auf der Startseite = (sicher + 0,5 × „1× richtig“) / alle Fragen; unter 10 % mit einer Nachkommastelle. Absperrband: voller Teil = sicher, heller Teil = halbe Punkte.
 

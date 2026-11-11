@@ -7,30 +7,37 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.9 vom 10.11.2026
-- **Fragen:** 351 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
-- **Prüfungssimulation:** 82 Fragen, 120 Minuten, bestanden ab 50 %
+- **Version:** 1.10 vom 11.11.2026
+- **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
+- **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
 | Sachgebiet | Fragen in der App | Fragen in der Prüfung |
 | --- | ---: | ---: |
-| Recht der öffentlichen Sicherheit und Ordnung | 41 | 6 |
-| Gewerberecht | 35 | 5 |
-| Datenschutzrecht | 33 | 5 |
-| Bürgerliches Gesetzbuch | 41 | 10 |
-| Straf- und Strafverfahrensrecht | 46 | 11 |
-| Umgang mit Waffen | 32 | 5 |
-| Unfallverhütungsvorschriften | 34 | 6 |
-| Umgang mit Menschen | 46 | 18 |
-| Grundzüge der Sicherheitstechnik | 43 | 16 |
-| **Summe** | **351** | **82** |
+| Recht der öffentlichen Sicherheit und Ordnung | 49 | 6 |
+| Gewerberecht | 45 | 5 |
+| Datenschutzrecht | 39 | 5 |
+| Bürgerliches Gesetzbuch | 50 | 10 |
+| Straf- und Strafverfahrensrecht | 62 | 11 |
+| Umgang mit Waffen | 41 | 5 |
+| Unfallverhütungsvorschriften | 44 | 6 |
+| Umgang mit Menschen | 61 | 18 |
+| Grundzüge der Sicherheitstechnik | 60 | 16 |
+| **Summe** | **451** | **82** |
 
 ## Offen / nächste Schritte
 
 - [x] KI-Hilfe mit einem echten Gemini-Schlüssel testen – funktioniert auf dem iPhone (10.11.2026, Modell gemini-3.6-flash)
-- [ ] Fragen inhaltlich gegenprüfen, vor allem BewachV-Paragraphen, Versicherungssummen und Prüfungsaufteilung
-- [ ] Mehr Fragen für „Umgang mit Menschen" und „Sicherheitstechnik" (die größten Prüfungsgebiete)
+- [x] Fragen gegenprüfen: Abgleich mit einer KATI-Fragenliste (777 Fragen) und Prüfung von § 14, 17, 18, 20, 21 BewachV am Gesetzestext (11.11.2026). Drei Fehler korrigiert
+- [ ] Wie die IHK falsch gesetzte Kreuze wertet, ist nicht veröffentlicht. Die App zieht je falschem Kreuz einen Punkt der Frage ab; bei neuen Infos anpassen
+- [ ] Lernkapitel um die neuen Themen ergänzen (z. B. § 243 StGB, Schließanlagen, Brandschutzordnung)
+- [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 1.10 – 11.11.2026
+- 100 neue, selbst formulierte Fragen (351 → 451). Themen aus dem Abgleich mit einer KATI-Fragenliste, Wortlaut nicht übernommen
+- Prüfungssimulation mit Teilpunkten wie die IHK seit 1. Juli 2025 (82 Fragen, Punkte = Anzahl richtiger Antworten, bestanden ab 50 %). Annahme der App: jedes falsche Kreuz hebt einen Punkt der Frage auf
+- Korrigiert: Dienstausweis ohne Lichtbild-Pflicht, dafür mit Bewacherregister-Nummern (§ 18 Abs. 1 BewachV); Vorzeigen gegenüber Vollzugsbehörden (§ 18 Abs. 2); Meldung nach Waffengebrauch an Polizei und Gewerbetreibenden (§ 17 Abs. 1, § 20 Abs. 2)
 
 ### 1.9 – 10.11.2026
 - Prozentanzeige verbessert: „1× richtig“ zählt halb, „sicher“ voll. Vorher zählten nur sichere Fragen (2× hintereinander richtig), dadurch blieb die Anzeige lange bei 0 %

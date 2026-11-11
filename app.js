@@ -242,6 +242,9 @@
     const nx = $("#next"); if (nx) nx.onclick = () => { s.i++; s.sel = []; s.checked = false; s.order = null; if (s.i >= s.list.length) learnDone(); else { renderQ(); enter(); window.scrollTo(0, 0); } };
   }
   function isRight(q, sel) { return sel.length === q.c.length && sel.every(a => q.c.includes(a)); }
+  // Punkte wie in der IHK-Prüfung seit 1. Juli 2025: je richtig angekreuzter Antwort ein Punkt (Teilpunkte).
+  // Wie falsche Kreuze gewertet werden, hat die IHK nicht veröffentlicht. Annahme der App: jedes falsche Kreuz hebt einen Punkt auf (nie unter 0).
+  function points(q, sel) { const good = sel.filter(a => q.c.includes(a)).length, bad = sel.length - good; return Math.max(0, good - bad); }
   function learnDone() {
     const s = session, pct = Math.round(s.right / s.list.length * 100);
     $("#app").innerHTML = `<div class="card" style="text-align:center"><h2>Runde geschafft!</h2>
@@ -261,10 +264,11 @@
     const hist = S.exams.slice(-5).reverse();
     $("#app").innerHTML = `<div class="card"><h2>📝 Wie in der IHK-Prüfung</h2>
       <ul><li><b>82 Fragen</b> aus allen 9 Sachgebieten, verteilt wie in der Prüfung</li>
-      <li><b>120 Minuten</b> Zeit</li><li>Eine oder mehrere Antworten können richtig sein. Punkte gibt es nur, wenn <b>alle</b> richtigen Antworten gewählt sind.</li>
-      <li>Bestanden ab <b>50%</b> (Richtwert, entspricht der IHK-Grenze)</li><li>Die Lösungen siehst du erst am Ende.</li></ul>
+      <li><b>120 Minuten</b> Zeit</li><li>Eine oder mehrere Antworten können richtig sein. Wie bei der IHK seit 1. Juli 2025 gibt es <b>Teilpunkte</b>: einen Punkt für jede richtig angekreuzte Antwort.</li>
+      <li>Wie falsche Kreuze zählen, hat die IHK nicht veröffentlicht. Die App zieht vorsichtshalber für jedes falsche Kreuz einen Punkt dieser Frage ab. Kreuze also nur an, was du sicher weißt.</li>
+      <li>Bestanden ab <b>50 % der Punkte</b> (IHK: 60 von 120 Punkten)</li><li>Die Lösungen siehst du erst am Ende.</li></ul>
       <table><tr><th>Sachgebiet</th><th class="n">Fragen</th></tr>${TOPICS.map(t => `<tr><td>${t.icon} ${esc(t.name)}</td><td class="n">${t.examCount}</td></tr>`).join("")}</table></div>
-      ${hist.length ? `<div class="card"><h3>Deine letzten Prüfungen</h3><table>${hist.map(h => `<tr><td>${new Date(h.d).toLocaleDateString("de-DE")} ${new Date(h.d).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</td><td class="n">${h.right}/${h.total}</td><td class="n ${h.pass ? "pass" : "fail"}"><b>${h.pct}%</b></td></tr>`).join("")}</table></div>` : ""}`;
+      ${hist.length ? `<div class="card"><h3>Deine letzten Prüfungen</h3><table>${hist.map(h => `<tr><td>${new Date(h.d).toLocaleDateString("de-DE")} ${new Date(h.d).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</td><td class="n">${h.pts != null ? h.pts + "/" + h.max + " P." : h.right + "/" + h.total}</td><td class="n ${h.pass ? "pass" : "fail"}"><b>${h.pct}%</b></td></tr>`).join("")}</table></div>` : ""}`;
     foot(`<button class="btn" id="startExam">Prüfung starten</button>`);
     $("#startExam").onclick = startExam;
   }
@@ -315,21 +319,23 @@
     clearTimer();
     const e = exam; e.done = true;
     e.res = e.list.map((q, i) => isRight(q, e.ans[i]));
+    e.pts = e.list.map((q, i) => points(q, e.ans[i]));
+    e.max = e.list.reduce((n, q) => n + q.c.length, 0);
     e.list.forEach((q, i) => record(q, e.res[i]));
-    const right = e.res.filter(Boolean).length, pct = Math.round(right / e.list.length * 100);
-    S.exams.push({ d: Date.now(), right, total: e.list.length, pct, pass: pct >= 50 }); save();
+    const right = e.res.filter(Boolean).length, got = e.pts.reduce((a, b) => a + b, 0), pct = Math.round(got / e.max * 100);
+    S.exams.push({ d: Date.now(), right, total: e.list.length, pts: got, max: e.max, pct, pass: got * 2 >= e.max }); save();
     go("#/pruefung/ergebnis");
   }
   function examResult() {
     if (!exam || !exam.done) return go("#/pruefung");
     clearTimer();
-    const e = exam, right = e.res.filter(Boolean).length, pct = Math.round(right / e.list.length * 100), pass = pct >= 50;
+    const e = exam, right = e.res.filter(Boolean).length, got = e.pts.reduce((a, b) => a + b, 0), pct = Math.round(got / e.max * 100), pass = got * 2 >= e.max;
     setHeader("Ergebnis", "#/");
-    const per = TOPICS.map(t => { const idx = e.list.map((q, i) => i).filter(i => e.list[i].topic === t.id); const r = idx.filter(i => e.res[i]).length; return { t, r, n: idx.length }; });
+    const per = TOPICS.map(t => { const idx = e.list.map((q, i) => i).filter(i => e.list[i].topic === t.id); return { t, r: idx.reduce((n, i) => n + e.pts[i], 0), n: idx.reduce((n, i) => n + e.list[i].c.length, 0) }; }).filter(x => x.n);
     $("#app").innerHTML = `<div class="card" style="text-align:center;padding:24px 16px"><div class="result ${pass ? "pass" : "fail"}"><span id="epct" data-to="${pct}">0</span> %</div>
-      <div class="stamp ${pass ? "pass" : "fail"}">${pass ? "Bestanden" : "Nicht bestanden"}</div><p class="muted" style="margin-top:16px">${right} von ${e.list.length} Fragen vollständig richtig</p></div>
-      <div class="card"><h3>Nach Sachgebiet</h3><table>${per.map(x => `<tr><td>${x.t.icon} ${esc(x.t.short)}</td><td class="n">${x.r}/${x.n}</td><td class="n ${x.r / x.n >= .5 ? "pass" : "fail"}">${Math.round(x.r / x.n * 100)}%</td></tr>`).join("")}</table></div>
-      <div class="card"><h3>Fragen ansehen</h3><div class="muted" style="margin-bottom:8px">Grün = richtig, Rot = falsch. Tippe auf eine Nummer.</div>
+      <div class="stamp ${pass ? "pass" : "fail"}">${pass ? "Bestanden" : "Nicht bestanden"}</div><p style="margin:16px 0 2px"><b>${got} von ${e.max} Punkten</b> · bestanden ab ${Math.ceil(e.max / 2)}</p><p class="muted" style="margin:0">${right} von ${e.list.length} Fragen vollständig richtig</p></div>
+      <div class="card"><h3>Nach Sachgebiet (Punkte)</h3><table>${per.map(x => `<tr><td>${x.t.icon} ${esc(x.t.short)}</td><td class="n">${x.r}/${x.n}</td><td class="n ${x.r / x.n >= .5 ? "pass" : "fail"}">${Math.round(x.r / x.n * 100)}%</td></tr>`).join("")}</table></div>
+      <div class="card"><h3>Fragen ansehen</h3><div class="muted" style="margin-bottom:8px">Grün = vollständig richtig, Rot = nicht vollständig richtig. Tippe auf eine Nummer.</div>
       <div class="navgrid">${e.list.map((_, i) => `<button data-n="${i}" class="${e.res[i] ? "ok" : "no"}">${i + 1}</button>`).join("")}</div></div>
       <div id="review"></div>`;
     document.querySelectorAll(".navgrid button").forEach(b => b.onclick = () => showReview(+b.dataset.n));
@@ -346,7 +352,7 @@
       const cls = good && s ? "ok sel" : good ? "ok miss" : s ? "bad" : "";
       h += `<button class="ans ${cls}" disabled><span class="box">${good ? "✓" : s ? "✗" : ""}</span><span>${String.fromCharCode(65 + k)}) ${esc(q.a[ai])}</span></button>`;
     });
-    h += `<div class="expl ${e.res[i] ? "ok" : "bad"}">${esc(q.e || "")}${q.p ? `<br><span class="para">📌 ${esc(q.p)}</span>` : ""}</div></div>`;
+    h += `<div class="expl ${e.res[i] ? "ok" : "bad"}"><b>${e.pts[i]} von ${q.c.length} ${q.c.length === 1 ? "Punkt" : "Punkten"}.</b> ${esc(q.e || "")}${q.p ? `<br><span class="para">📌 ${esc(q.p)}</span>` : ""}</div></div>`;
     $("#review").innerHTML = h; $("#review").scrollIntoView({ behavior: "smooth" });
     $("#aiq").onclick = () => openAI(q, sel, e.order[i]);
   }
