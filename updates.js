@@ -2,6 +2,12 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "1.12", d: "2026-11-16", items: [
+      "Fragen-Import liest jetzt auch PDF-Dateien: unter „Eigene Fragen“ auf „PDF- oder Textdatei wählen“ tippen",
+      "Doppelte Fragen innerhalb einer Datei werden übersprungen, Seitenzahlen ignoriert"
+    ]
+  },
+  {
     v: "1.11", d: "2026-11-16", items: [
       "Neu: Fragen importieren unter „Eigene Fragen“. Liste einfügen („1. Frage“, „A) Antwort“, richtige mit ✅), die App legt daraus eigene Fragen an",
       "Das Sachgebiet wird automatisch erkannt, doppelte Fragen werden übersprungen",

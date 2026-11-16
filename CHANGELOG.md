@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.11 vom 16.11.2026
+- **Version:** 1.12 vom 16.11.2026
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
@@ -33,6 +33,11 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 1.12 – 16.11.2026
+- Import liest PDF- und Textdateien direkt auf dem Gerät. Der PDF-Leser (pdf.js 3.11.174 von cdnjs) wird nur bei Bedarf geladen, dafür ist Internet nötig
+- Erkennt auch das Format „A) Richtig · Antwort“, ignoriert Seitenzahlen und Fußzeilen, überspringt Dubletten innerhalb der Datei
+- Getestet mit einer PDF mit 777 Fragen: alle erkannt und zugeordnet
 
 ### 1.11 – 16.11.2026
 - Import für eigene Fragen: Text im Format „1. Frage / A) Antwort / ✅ = richtig“ einfügen, Sachgebiet automatisch oder fest wählen, Dubletten werden übersprungen. Gespeichert nur im localStorage des Geräts (und im Backup), nicht im Repo

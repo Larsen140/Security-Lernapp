@@ -674,6 +674,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     const MARK = /^\s*(✅|✔️?|☑️?|✓|\[x\]|\(x\)|Richtig\s*[·:-])\s*/i;
     String(txt || "").replace(/\r/g, "").split("\n").forEach(raw => {
       const line = raw.trim(); if (!line) return;
+      if (/^[^\s/]{1,30}\s*\/\s*\d{1,4}$/.test(line) || /^(Seite\s*)?\d{1,4}(\s*(von|\/)\s*\d{1,4})?$/i.test(line)) return; // Seitenzahlen, Fußzeilen
       const opt = line.match(/^([A-Fa-f])\s*[).\]:]\s*(.*)$/);
       const qm = line.match(/^(\d{1,4})\s*[.)]\s+(.+)$/);
       if (opt && cur) {
@@ -688,6 +689,36 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       if (last === "a") cur.a[cur.a.length - 1] += " " + line; else cur.q += " " + line;
     });
     return out.filter(x => x.q && x.a.length >= 2 && x.c.length);
+  }
+  // PDF im Browser auslesen (pdf.js wird nur bei Bedarf geladen, dafür ist Internet nötig)
+  const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+  function loadPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    return new Promise((ok, fail) => {
+      const sc = document.createElement("script"); sc.src = PDFJS + "pdf.min.js";
+      sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.js"; ok(window.pdfjsLib); };
+      sc.onerror = () => fail(new Error("PDF-Leser konnte nicht geladen werden. Bist du online?"));
+      document.head.appendChild(sc);
+    });
+  }
+  async function pdfToText(file, progress) {
+    const lib = await loadPdfJs();
+    const pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
+    const lines = [];
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const tc = await (await pdf.getPage(n)).getTextContent();
+      let line = "", y = null;
+      tc.items.forEach(it => {
+        const iy = it.transform ? it.transform[5] : y;
+        if (y !== null && Math.abs(iy - y) > 2 && line) { lines.push(line); line = ""; }
+        line += it.str; y = iy;
+        if (it.hasEOL) { lines.push(line); line = ""; }
+      });
+      if (line) lines.push(line);
+      lines.push("");
+      if (progress) progress(n, pdf.numPages);
+    }
+    return lines.map(l => l.replace(/\s+/g, " ").trim()).join("\n");
   }
   // Sachgebiet automatisch wählen: Welches Sachgebiet hat die meisten gemeinsamen Fachwörter?
   let topicWords = null;
@@ -713,7 +744,9 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     setHeader("Eigene Fragen", "#/");
     let h = `<div class="card"><h2>📥 Fragen importieren</h2>
       <p class="muted">Füge eine Liste ein: „1. Frage“, darunter „A) Antwort“, richtige Antworten mit ✅ markiert. Die Fragen bleiben nur auf diesem Gerät, kommen ins Backup und werden nicht veröffentlicht.</p>
-      <textarea id="imptxt" placeholder="1. Frage …&#10;A) Antwort&#10;B) ✅ richtige Antwort" style="min-height:120px"></textarea>
+      <label class="btn sec" style="cursor:pointer">📄 PDF- oder Textdatei wählen<input type="file" id="impfile" accept=".pdf,.txt,application/pdf,text/plain" style="display:none"></label>
+      <p class="muted" id="impfilestat" style="margin-top:-4px"></p>
+      <textarea id="imptxt" placeholder="… oder Text hier einfügen:&#10;1. Frage&#10;A) Antwort&#10;B) ✅ richtige Antwort" style="min-height:120px"></textarea>
       <label>Sachgebiet</label><select id="imptopic"><option value="auto">Automatisch zuordnen</option>${TOPICS.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select>
       <button class="btn sec" id="impcheck">Prüfen</button><div id="impprev"></div></div>
       <div class="card"><h2>✏️ Neue Frage anlegen</h2>
@@ -734,16 +767,31 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     }
     $("#app").innerHTML = h; foot("");
     let parsed = [];
+    $("#impfile").onchange = async ev => {
+      const f = ev.target.files[0]; if (!f) return;
+      const st = $("#impfilestat");
+      try {
+        st.textContent = "Lese „" + f.name + "“ …";
+        const txt = /\.pdf$/i.test(f.name) || f.type === "application/pdf"
+          ? await pdfToText(f, (n, all) => { st.textContent = "Lese Seite " + n + " von " + all + " …"; })
+          : await f.text();
+        $("#imptxt").value = txt; st.textContent = "„" + f.name + "“ gelesen.";
+        $("#impcheck").click();
+      } catch (err) { st.textContent = "Fehler: " + err.message; }
+      ev.target.value = "";
+    };
     $("#impcheck").onclick = () => {
       parsed = parseImport($("#imptxt").value);
       const known = new Set(S.custom.map(c => c.q.trim().toLowerCase()));
-      const fresh = parsed.filter(x => !known.has(x.q.trim().toLowerCase()));
+      const sig = x => x.q.trim().toLowerCase() + "|" + x.a.map(a => a.trim().toLowerCase()).sort().join("|");
+      const seen = new Set();
+      const fresh = parsed.filter(x => { const k = sig(x); if (known.has(x.q.trim().toLowerCase()) || seen.has(k)) return false; seen.add(k); return true; });
       const box = $("#impprev");
       if (!parsed.length) { box.innerHTML = `<p class="muted"><b>Keine Fragen erkannt.</b> Jede Frage braucht eine Nummer („1.“), mindestens zwei Antworten („A)“) und mindestens eine ✅.</p>`; return; }
       const sel = $("#imptopic").value;
       fresh.forEach(x => { x.topic = sel === "auto" ? guessTopic(x) : sel; });
       const per = {}; fresh.forEach(x => per[x.topic] = (per[x.topic] || 0) + 1);
-      box.innerHTML = `<p><b>${parsed.length} Fragen erkannt</b>${parsed.length - fresh.length ? `, davon ${parsed.length - fresh.length} schon vorhanden` : ""}.</p>
+      box.innerHTML = `<p><b>${parsed.length} Fragen erkannt</b>${parsed.length - fresh.length ? `, davon ${parsed.length - fresh.length} doppelt oder schon vorhanden` : ""}.</p>
         ${fresh.length ? `<p class="muted">${Object.keys(per).map(t => esc(topicById(t).short) + ": " + per[t]).join(" · ")}</p><button class="btn" id="impgo">${fresh.length} Fragen übernehmen</button>` : ""}`;
       const go = $("#impgo"); if (go) go.onclick = () => {
         const t0 = Date.now();
