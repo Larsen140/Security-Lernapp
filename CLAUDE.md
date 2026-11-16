@@ -42,7 +42,7 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 ## Fragen
 - Neue Fragen immer am ENDE der Liste anhängen: Die ID ist `sachgebiet-index`, daran hängt der Lernstand der Nutzer.
 - KATI-Listen dürfen nur zur Themensuche und zum Gegenprüfen genutzt werden, nie wörtlich übernommen (Repo ist öffentlich).
-- Fremde Fragenlisten importiert der Nutzer selbst über „Eigene Fragen → Fragen importieren“ (`parseImport`, `guessTopic` in `app.js`). Sie liegen nur in `S.custom` auf dem Gerät (Flag `imp: true`). Mit `onlyOwn()` (Einstellung `S.settings.onlyOwn`, sonst automatisch an bei importierten Fragen) liefert `questionsOf()` nur eigene Fragen; eingebaute Fragen nie aus dem Repo löschen. PDF-Dateien liest `pdfToText` mit pdf.js 3.11.174 von cdnjs (nur bei Bedarf geladen).
+- Fremde Fragenlisten importiert der Nutzer selbst über „Eigene Fragen → Fragen importieren“ (`parseImport`, `guessTopic` in `app.js`). Sie liegen nur in `S.custom` auf dem Gerät (Flag `imp: true`). Mit `onlyOwn()` (Einstellung `S.settings.onlyOwn`, sonst automatisch an bei importierten Fragen) liefert `questionsOf()` nur eigene Fragen; eingebaute Fragen nie aus dem Repo löschen. Zwei Importformate: Ankreuzliste (A) … mit ✅/„Richtig ·“) und „nur Lösungen“ (• Aufzählung, falsche Antworten ergänzt `addDistractors()`). PDF-Dateien liest `pdfToText` mit pdf.js 3.11.174 von cdnjs (nur bei Bedarf geladen).
 
 ## Lernstand
 - Prozentzahl auf der Startseite = (sicher + 0,5 × „1× richtig“) / alle Fragen; unter 10 % mit einer Nachkommastelle. Absperrband: voller Teil = sicher, heller Teil = halbe Punkte.

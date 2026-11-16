@@ -672,26 +672,56 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
   // ---------- Eigene Fragen ----------
   // ---------- Fragen aus Text importieren (bleiben nur auf diesem Gerät) ----------
   // Format: „1. Frage“, darunter „A) Antwort“; richtige Antworten mit ✅ / ✔ / ✓ / [x] / (richtig) markiert.
+  // Zwei Formate werden erkannt:
+  // 1) Ankreuzfragen: „1. Frage“, darunter „A) Antwort“, richtige mit ✅ / ✔ / ✓ / [x] / „Richtig ·“ / (richtig)
+  // 2) Nur Lösungen: „1. Frage“, darunter die richtigen Antworten als Aufzählung (• oder -), ohne falsche Antworten
   function parseImport(txt) {
     const out = []; let cur = null, last = null;
     const MARK = /^\s*(✅|✔️?|☑️?|✓|\[x\]|\(x\)|Richtig\s*[·:-])\s*/i;
+    const LABEL = /^(KATI-Auswertung|Lösungsvorschlag|Lösung|Lösungen|Antwort(en)?|Richtige Antworten?)\s*:?$/i;
     String(txt || "").replace(/\r/g, "").split("\n").forEach(raw => {
       const line = raw.trim(); if (!line) return;
-      if (/^[^\s/]{1,30}\s*\/\s*\d{1,4}$/.test(line) || /^(Seite\s*)?\d{1,4}(\s*(von|\/)\s*\d{1,4})?$/i.test(line)) return; // Seitenzahlen, Fußzeilen
+      if (/^[^.?!]{1,60}\/\s*\d{1,4}$/.test(line) || /^(Seite\s*)?\d{1,4}(\s*(von|\/)\s*\d{1,4})?$/i.test(line)) return; // Seitenzahlen, Fußzeilen
+      if (/^Test\s+\d+$/i.test(line) || /^Weitere Fragen\b/i.test(line)) return; // Zwischenüberschriften
       const opt = line.match(/^([A-Fa-f])\s*[).\]:]\s*(.*)$/);
+      const bul = line.match(/^[•▪●◦·–-]\s*(.+)$/);
       const qm = line.match(/^(\d{1,4})\s*[.)]\s+(.+)$/);
-      if (opt && cur) {
+      if (cur && LABEL.test(line)) { cur.label = line.replace(/:$/, ""); last = "l"; return; }
+      if (opt && cur && !cur.sol) {
         let t = opt[2], ok = MARK.test(t);
         t = t.replace(MARK, "");
         if (/\s*\((richtig|korrekt)\)\s*$/i.test(t)) { ok = true; t = t.replace(/\s*\((richtig|korrekt)\)\s*$/i, ""); }
         if (ok) cur.c.push(cur.a.length);
         cur.a.push(t.trim()); last = "a"; return;
       }
-      if (qm && (!cur || cur.a.length)) { cur = { q: qm[2].trim(), a: [], c: [] }; out.push(cur); last = "q"; return; }
+      if (bul && cur && !cur.a.length || bul && cur && cur.sol) { cur.sol = true; cur.c.push(cur.a.length); cur.a.push(bul[1].trim()); last = "a"; return; }
+      if (qm && (!cur || cur.a.length || qm[1] === "1")) { cur = { q: qm[2].trim(), a: [], c: [] }; out.push(cur); last = "q"; return; }
       if (!cur) return;
-      if (last === "a") cur.a[cur.a.length - 1] += " " + line; else cur.q += " " + line;
+      if (last === "a") cur.a[cur.a.length - 1] += " " + line; else if (last === "q") cur.q += " " + line;
     });
-    return out.filter(x => x.q && x.a.length >= 2 && x.c.length);
+    return out.filter(x => x.q && x.c.length && (x.sol || x.a.length >= 2));
+  }
+  // Für „Nur Lösungen“: falsche Antworten aus anderen Fragen desselben Sachgebiets ergänzen.
+  // Genommen werden Antworten, die möglichst wenig Wörter mit der Frage und ihren Lösungen teilen.
+  function addDistractors(list) {
+    const words = t => new Set((t.toLowerCase().match(/[a-zäöüß]{4,}/g) || []));
+    const pool = {};
+    const add = (topic, a) => { (pool[topic] = pool[topic] || []).push(a); };
+    TOPICS.forEach(t => t.questions.forEach(q => q.c.forEach(i => add(t.id, q.a[i]))));
+    S.custom.forEach(q => q.c.forEach(i => add(q.topic, q.a[i])));
+    list.forEach(q => q.c.forEach(i => add(q.topic, q.a[i])));
+    list.filter(q => q.sol).forEach(q => {
+      const mine = words(q.q + " " + q.a.join(" "));
+      const own = new Set(q.a.map(a => a.toLowerCase()));
+      const cand = shuffle((pool[q.topic] || []).filter(a => !own.has(a.toLowerCase()) && a.length > 3))
+        .map(a => { const w = words(a); let o = 0; w.forEach(x => { if (mine.has(x)) o++; }); return { a, o: o / Math.max(1, w.size) }; })
+        .sort((x, y) => x.o - y.o);
+      const need = Math.max(2, 4 - q.a.length);
+      const picked = [];
+      for (const c of cand) { if (picked.length >= need) break; if (!picked.some(p => p.toLowerCase() === c.a.toLowerCase())) picked.push(c.a); }
+      q.a = q.a.concat(picked);
+      q.e = (q.label === "Lösungsvorschlag" ? "Achtung: nur ein Lösungsvorschlag, noch nicht bestätigt. " : "") + "In der Vorlage standen nur die richtigen Antworten. Die übrigen Antworten hat die App aus anderen Fragen dieses Sachgebiets ergänzt; selten kann eine davon zufällig auch zutreffen.";
+    });
   }
   // PDF im Browser auslesen (pdf.js wird nur bei Bedarf geladen, dafür ist Internet nötig)
   const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
@@ -785,20 +815,24 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     };
     $("#impcheck").onclick = () => {
       parsed = parseImport($("#imptxt").value);
-      const known = new Set(S.custom.map(c => c.q.trim().toLowerCase()));
-      const sig = x => x.q.trim().toLowerCase() + "|" + x.a.map(a => a.trim().toLowerCase()).sort().join("|");
+      const norm = t => String(t).toLowerCase().replace(/[^a-zäöüß0-9]/g, "");
+      const known = new Set(S.custom.map(c => norm(c.q)));
+      const sig = x => norm(x.q) + "|" + x.c.map(i => norm(x.a[i])).sort().join("|");
       const seen = new Set();
-      const fresh = parsed.filter(x => { const k = sig(x); if (known.has(x.q.trim().toLowerCase()) || seen.has(k)) return false; seen.add(k); return true; });
+      const fresh = parsed.filter(x => { const k = sig(x); if (known.has(norm(x.q)) || seen.has(k)) return false; seen.add(k); return true; });
       const box = $("#impprev");
-      if (!parsed.length) { box.innerHTML = `<p class="muted"><b>Keine Fragen erkannt.</b> Jede Frage braucht eine Nummer („1.“), mindestens zwei Antworten („A)“) und mindestens eine ✅.</p>`; return; }
+      if (!parsed.length) { box.innerHTML = `<p class="muted"><b>Keine Fragen erkannt.</b> Jede Frage braucht eine Nummer („1.“) und darunter entweder Antworten mit „A)“, „B)“ … und ✅ bei den richtigen, oder nur die richtigen Antworten als Aufzählung („•“).</p>`; return; }
       const sel = $("#imptopic").value;
       fresh.forEach(x => { x.topic = sel === "auto" ? guessTopic(x) : sel; });
+      addDistractors(fresh);
+      const solN = fresh.filter(x => x.sol).length, vorN = fresh.filter(x => x.label === "Lösungsvorschlag").length;
       const per = {}; fresh.forEach(x => per[x.topic] = (per[x.topic] || 0) + 1);
       box.innerHTML = `<p><b>${parsed.length} Fragen erkannt</b>${parsed.length - fresh.length ? `, davon ${parsed.length - fresh.length} doppelt oder schon vorhanden` : ""}.</p>
+        ${solN ? `<p class="muted">${solN} davon enthalten nur die richtigen Antworten. Die App ergänzt falsche Antworten aus anderen Fragen desselben Sachgebiets.${vorN ? ` ${vorN} sind als „Lösungsvorschlag“ markiert, also noch nicht bestätigt.` : ""}</p>` : ""}
         ${fresh.length ? `<p class="muted">${Object.keys(per).map(t => esc(topicById(t).short) + ": " + per[t]).join(" · ")}</p><button class="btn" id="impgo">${fresh.length} Fragen übernehmen</button>` : ""}`;
       const go = $("#impgo"); if (go) go.onclick = () => {
         const t0 = Date.now();
-        fresh.forEach((x, i) => S.custom.push({ id: "own-" + t0 + "-" + i, topic: x.topic, q: x.q, a: x.a, c: x.c, e: "", p: lawRef(x.q), own: true, imp: true }));
+        fresh.forEach((x, i) => S.custom.push({ id: "own-" + t0 + "-" + i, topic: x.topic, q: x.q, a: x.a, c: x.c, e: x.e || "", p: lawRef(x.q), own: true, imp: true }));
         save(); toast(fresh.length + " Fragen übernommen ✅"); customPage();
       };
     };

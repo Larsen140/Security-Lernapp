@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.14 vom 16.11.2026
+- **Version:** 1.15 vom 16.11.2026
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
@@ -33,6 +33,12 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 1.15 – 16.11.2026
+- Import: zweites Format „nur Lösungen“ (Frage + Aufzählung der richtigen Antworten). `addDistractors()` ergänzt falsche Antworten aus anderen Fragen desselben Sachgebiets (möglichst wenig Wortüberschneidung), bis 4 Antworten vorhanden sind
+- Kennzeichnung „Lösungsvorschlag“ in der Erklärung; Zeilen wie „Test 331“, „Weitere Fragen …“ und Fußzeilen „… / 33“ werden ignoriert
+- Dubletten-Vergleich ohne Satz- und Leerzeichen
+- Getestet: neue Lösungs-PDF (933 Fragen erkannt), alte PDF (777) und Textliste (58); kombiniert keine Dubletten
 
 ### 1.14 – 16.11.2026
 - Einstellung „Nur meine eigenen Fragen verwenden“ (`S.settings.onlyOwn`). Ohne ausdrückliche Wahl automatisch an, sobald importierte Fragen existieren. Wirkt auf Startseite, Sachgebiete, alle Lernmodi und Prüfung

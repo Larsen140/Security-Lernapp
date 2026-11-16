@@ -2,6 +2,13 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "1.15", d: "2026-11-16", items: [
+      "Import erkennt jetzt auch Listen, in denen nur die richtigen Antworten als Aufzählung (•) stehen. Die App ergänzt dann falsche Antworten aus anderen Fragen desselben Sachgebiets",
+      "„Lösungsvorschlag“ wird bei der Frage vermerkt, Zwischenüberschriften und Seitenzahlen werden ignoriert",
+      "Doppelte Fragen werden jetzt auch erkannt, wenn sie sich nur in Satzzeichen oder Leerzeichen unterscheiden"
+    ]
+  },
+  {
     v: "1.14", d: "2026-11-16", items: [
       "Neu: Schalter „Nur meine eigenen Fragen verwenden“ in den Einstellungen. Lernen, Fehler wiederholen und Prüfung nutzen dann nur deine importierten und selbst angelegten Fragen",
       "Der Schalter ist automatisch an, sobald du Fragen importiert hast. Die eingebauten Fragen und dein Lernstand dazu bleiben erhalten"
