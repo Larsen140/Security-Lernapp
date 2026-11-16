@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.10 vom 11.11.2026
+- **Version:** 1.11 vom 16.11.2026
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
@@ -33,6 +33,10 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 1.11 – 16.11.2026
+- Import für eigene Fragen: Text im Format „1. Frage / A) Antwort / ✅ = richtig“ einfügen, Sachgebiet automatisch oder fest wählen, Dubletten werden übersprungen. Gespeichert nur im localStorage des Geräts (und im Backup), nicht im Repo
+- Knopf „Alle importierten Fragen löschen“
 
 ### 1.10 – 11.11.2026
 - 100 neue, selbst formulierte Fragen (351 → 451). Themen aus dem Abgleich mit einer KATI-Fragenliste, Wortlaut nicht übernommen

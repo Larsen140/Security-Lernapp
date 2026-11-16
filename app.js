@@ -667,10 +667,56 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
   }
 
   // ---------- Eigene Fragen ----------
+  // ---------- Fragen aus Text importieren (bleiben nur auf diesem Gerät) ----------
+  // Format: „1. Frage“, darunter „A) Antwort“; richtige Antworten mit ✅ / ✔ / ✓ / [x] / (richtig) markiert.
+  function parseImport(txt) {
+    const out = []; let cur = null, last = null;
+    const MARK = /^\s*(✅|✔️?|☑️?|✓|\[x\]|\(x\)|Richtig\s*[·:-])\s*/i;
+    String(txt || "").replace(/\r/g, "").split("\n").forEach(raw => {
+      const line = raw.trim(); if (!line) return;
+      const opt = line.match(/^([A-Fa-f])\s*[).\]:]\s*(.*)$/);
+      const qm = line.match(/^(\d{1,4})\s*[.)]\s+(.+)$/);
+      if (opt && cur) {
+        let t = opt[2], ok = MARK.test(t);
+        t = t.replace(MARK, "");
+        if (/\s*\((richtig|korrekt)\)\s*$/i.test(t)) { ok = true; t = t.replace(/\s*\((richtig|korrekt)\)\s*$/i, ""); }
+        if (ok) cur.c.push(cur.a.length);
+        cur.a.push(t.trim()); last = "a"; return;
+      }
+      if (qm && (!cur || cur.a.length)) { cur = { q: qm[2].trim(), a: [], c: [] }; out.push(cur); last = "q"; return; }
+      if (!cur) return;
+      if (last === "a") cur.a[cur.a.length - 1] += " " + line; else cur.q += " " + line;
+    });
+    return out.filter(x => x.q && x.a.length >= 2 && x.c.length);
+  }
+  // Sachgebiet automatisch wählen: Welches Sachgebiet hat die meisten gemeinsamen Fachwörter?
+  let topicWords = null;
+  function guessTopic(q) {
+    const words = t => (t.toLowerCase().match(/[a-zäöüß§]{5,}|§\s*\d+[a-z]?/g) || []).map(w => w.replace(/\s+/g, ""));
+    if (!topicWords) {
+      topicWords = {}; const df = {};
+      TOPICS.forEach(t => { const set = new Set(); t.questions.forEach(x => words(x.q + " " + x.a.join(" ") + " " + (x.p || "")).forEach(w => set.add(w))); topicWords[t.id] = set; set.forEach(w => df[w] = (df[w] || 0) + 1); });
+      topicWords.df = df;
+    }
+    const law = (q.q + " " + q.a.join(" ")).match(/\b(StGB|StPO|BGB|GewO|BewachV|WaffG|DSGVO|BDSG|GG|DGUV)\b/);
+    const byLaw = { StGB: "stgb", StPO: "stgb", BGB: "bgb", GewO: "gewo", BewachV: "gewo", WaffG: "umw", DSGVO: "ds", BDSG: "ds", GG: "rdoeso", DGUV: "dguv" };
+    if (law) return byLaw[law[1]];
+    let best = TOPICS[0].id, bestScore = -1;
+    const ws = words(q.q + " " + q.a.join(" "));
+    TOPICS.forEach(t => { let sc = 0; ws.forEach(w => { if (topicWords[t.id].has(w)) sc += 1 / topicWords.df[w]; }); if (sc > bestScore) { bestScore = sc; best = t.id; } });
+    return best;
+  }
+  const lawRef = t => { const m = t.match(/§\s*\d+\s*[a-z]?(\s*Abs\.\s*\d+)?\s*(StGB|StPO|BGB|GewO|BewachV|WaffG|DSGVO|BDSG|GG)/); return m ? m[0].replace(/\s+/g, " ") : ""; };
+
   function customPage() {
     clearTimer();
     setHeader("Eigene Fragen", "#/");
-    let h = `<div class="card"><h2>✏️ Neue Frage anlegen</h2>
+    let h = `<div class="card"><h2>📥 Fragen importieren</h2>
+      <p class="muted">Füge eine Liste ein: „1. Frage“, darunter „A) Antwort“, richtige Antworten mit ✅ markiert. Die Fragen bleiben nur auf diesem Gerät, kommen ins Backup und werden nicht veröffentlicht.</p>
+      <textarea id="imptxt" placeholder="1. Frage …&#10;A) Antwort&#10;B) ✅ richtige Antwort" style="min-height:120px"></textarea>
+      <label>Sachgebiet</label><select id="imptopic"><option value="auto">Automatisch zuordnen</option>${TOPICS.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select>
+      <button class="btn sec" id="impcheck">Prüfen</button><div id="impprev"></div></div>
+      <div class="card"><h2>✏️ Neue Frage anlegen</h2>
       <label>Sachgebiet</label><select id="ct">${TOPICS.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select>
       <label>Frage</label><textarea id="cq" placeholder="Frage eingeben"></textarea>
       <label>Antworten (richtige ankreuzen)</label>
@@ -679,7 +725,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       <label>Paragraph (optional)</label><input id="cp" placeholder="z. B. § 32 StGB">
       <button class="btn" id="csave">Frage speichern</button></div>`;
     if (S.custom.length) {
-      h += `<div class="card"><h3>Deine Fragen (${S.custom.length})</h3>`;
+      h += `<div class="card"><h3>Deine Fragen (${S.custom.length})</h3>${S.custom.some(c => c.imp) ? `<button class="btn ghost" id="impdel">🗑 Alle importierten Fragen löschen</button>` : ""}`;
       S.custom.slice().reverse().forEach(c => {
         h += `<div style="border-bottom:1px solid var(--line);padding:8px 0"><span class="pill">${topicById(c.topic).short}</span><b>${esc(c.q)}</b>
           <div class="muted">✓ ${c.c.map(i => esc(c.a[i])).join(" · ")}</div><button class="flagbtn" data-del="${c.id}" style="margin-top:4px">🗑 Löschen</button></div>`;
@@ -687,6 +733,24 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       h += `</div>`;
     }
     $("#app").innerHTML = h; foot("");
+    let parsed = [];
+    $("#impcheck").onclick = () => {
+      parsed = parseImport($("#imptxt").value);
+      const known = new Set(S.custom.map(c => c.q.trim().toLowerCase()));
+      const fresh = parsed.filter(x => !known.has(x.q.trim().toLowerCase()));
+      const box = $("#impprev");
+      if (!parsed.length) { box.innerHTML = `<p class="muted"><b>Keine Fragen erkannt.</b> Jede Frage braucht eine Nummer („1.“), mindestens zwei Antworten („A)“) und mindestens eine ✅.</p>`; return; }
+      const sel = $("#imptopic").value;
+      fresh.forEach(x => { x.topic = sel === "auto" ? guessTopic(x) : sel; });
+      const per = {}; fresh.forEach(x => per[x.topic] = (per[x.topic] || 0) + 1);
+      box.innerHTML = `<p><b>${parsed.length} Fragen erkannt</b>${parsed.length - fresh.length ? `, davon ${parsed.length - fresh.length} schon vorhanden` : ""}.</p>
+        ${fresh.length ? `<p class="muted">${Object.keys(per).map(t => esc(topicById(t).short) + ": " + per[t]).join(" · ")}</p><button class="btn" id="impgo">${fresh.length} Fragen übernehmen</button>` : ""}`;
+      const go = $("#impgo"); if (go) go.onclick = () => {
+        const t0 = Date.now();
+        fresh.forEach((x, i) => S.custom.push({ id: "own-" + t0 + "-" + i, topic: x.topic, q: x.q, a: x.a, c: x.c, e: "", p: lawRef(x.q), own: true, imp: true }));
+        save(); toast(fresh.length + " Fragen übernommen ✅"); customPage();
+      };
+    };
     $("#csave").onclick = () => {
       const q = $("#cq").value.trim(), a = [], c = [];
       [0, 1, 2, 3, 4].forEach(i => { const v = $("#ca" + i).value.trim(); if (v) { if ($("#cc" + i).checked) c.push(a.length); a.push(v); } });
@@ -694,6 +758,11 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       if (!c.length) return toast("Bitte mindestens eine richtige Antwort ankreuzen");
       S.custom.push({ id: "own-" + Date.now(), topic: $("#ct").value, q, a, c, e: $("#ce").value.trim(), p: $("#cp").value.trim(), own: true });
       save(); toast("Frage gespeichert ✅"); customPage();
+    };
+    const idel = $("#impdel"); if (idel) idel.onclick = () => {
+      const ids = S.custom.filter(c => c.imp).map(c => c.id);
+      if (!confirm(ids.length + " importierte Fragen löschen?")) return;
+      S.custom = S.custom.filter(c => !c.imp); ids.forEach(id => { delete S.prog[id]; delete S.flags[id]; }); save(); customPage();
     };
     document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
       if (!confirm("Diese Frage löschen?")) return;

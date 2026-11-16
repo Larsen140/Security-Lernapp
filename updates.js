@@ -2,6 +2,13 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "1.11", d: "2026-11-16", items: [
+      "Neu: Fragen importieren unter „Eigene Fragen“. Liste einfügen („1. Frage“, „A) Antwort“, richtige mit ✅), die App legt daraus eigene Fragen an",
+      "Das Sachgebiet wird automatisch erkannt, doppelte Fragen werden übersprungen",
+      "Importierte Fragen bleiben nur auf deinem Gerät und lassen sich mit einem Knopf wieder löschen"
+    ]
+  },
+  {
     v: "1.10", d: "2026-11-11", items: [
       "100 neue Fragen, jetzt 451 insgesamt. Mehr Fragen u. a. zu besonders schwerem Diebstahl, Begünstigung, Putativnotwehr, Schikaneverbot, Waffentransport, Brandschutz, Schließanlagen, Funk und Kommunikation",
       "Prüfungssimulation wertet jetzt wie die IHK seit Juli 2025: Teilpunkte für jede richtig angekreuzte Antwort, bestanden ab 50 % der Punkte",
