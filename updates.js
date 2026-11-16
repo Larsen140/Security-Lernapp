@@ -2,6 +2,12 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "1.14", d: "2026-11-16", items: [
+      "Neu: Schalter „Nur meine eigenen Fragen verwenden“ in den Einstellungen. Lernen, Fehler wiederholen und Prüfung nutzen dann nur deine importierten und selbst angelegten Fragen",
+      "Der Schalter ist automatisch an, sobald du Fragen importiert hast. Die eingebauten Fragen und dein Lernstand dazu bleiben erhalten"
+    ]
+  },
+  {
     v: "1.13", d: "2026-11-16", items: [
       "Die Prüfungssimulation nimmt jetzt auch deine eigenen und importierten Fragen mit dazu"
     ]

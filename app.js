@@ -33,10 +33,12 @@
   TOPICS.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
   TOPICS.forEach(t => t.questions.forEach((q, i) => { q.id = t.id + "-" + i; q.topic = t.id; }));
   const topicById = id => TOPICS.find(t => t.id === id);
+  // „Nur eigene Fragen“: Ist nichts eingestellt, gilt es automatisch, sobald Fragen importiert wurden.
+  const onlyOwn = () => S.custom.length > 0 && (S.settings.onlyOwn != null ? S.settings.onlyOwn : S.custom.some(c => c.imp));
   function questionsOf(tid) {
     const t = topicById(tid);
     const own = S.custom.filter(c => c.topic === tid);
-    return t.questions.concat(own);
+    return onlyOwn() ? own : t.questions.concat(own);
   }
   const allQuestions = () => TOPICS.flatMap(t => questionsOf(t.id));
   const qById = id => allQuestions().find(q => q.id === id);
@@ -116,6 +118,7 @@
     let html = `<div class="badge"><div class="tape"><i id="tape" data-w="${pctSafe}"></i><i id="tape2" class="half" data-l="${pctSafe}" data-w="${pctHalf}"></i></div>
       <div class="top"><div class="title">Sachkunde § 34a GewO<b>Dein Lernstand</b></div><div class="pct"><span id="pctnum" data-to="${pct}" data-dec="${pct > 0 && pct < 10 ? 1 : 0}">0</span><small>%</small></div></div>
       <div class="stats"><div class="st-g"><b>${c.gruen}</b>sicher</div><div class="st-y"><b>${c.gelb}</b>1× richtig</div><div class="st-r"><b>${c.rot}</b>falsch</div><div><b>${c.neu}</b>neu</div></div>
+      ${onlyOwn() ? `<div class="last">Fragen: nur deine eigenen (${S.custom.length}) · <a href="#/einstellungen" style="color:#FFCC5C">ändern</a></div>` : ""}
       ${lastExam ? `<div class="last">Letzte Prüfung: <b class="${lastExam.pass ? "pass" : "fail"}">${lastExam.pct} %, ${lastExam.pass ? "bestanden" : "nicht bestanden"}</b></div>` : ""}</div>
       <button class="btn" data-go="#/lernen/mix">▶ Weiterlernen (alle Themen)</button>
       <div class="grid2">
@@ -267,7 +270,7 @@
       <li><b>120 Minuten</b> Zeit</li><li>Eine oder mehrere Antworten können richtig sein. Wie bei der IHK seit 1. Juli 2025 gibt es <b>Teilpunkte</b>: einen Punkt für jede richtig angekreuzte Antwort.</li>
       <li>Wie falsche Kreuze zählen, hat die IHK nicht veröffentlicht. Die App zieht vorsichtshalber für jedes falsche Kreuz einen Punkt dieser Frage ab. Kreuze also nur an, was du sicher weißt.</li>
       <li>Bestanden ab <b>50 % der Punkte</b> (IHK: 60 von 120 Punkten)</li><li>Die Lösungen siehst du erst am Ende.</li></ul>
-      <table><tr><th>Sachgebiet</th><th class="n">Fragen</th></tr>${TOPICS.map(t => `<tr><td>${t.icon} ${esc(t.name)}</td><td class="n">${t.examCount}</td></tr>`).join("")}</table></div>
+      <table><tr><th>Sachgebiet</th><th class="n">Fragen</th></tr>${TOPICS.map(t => `<tr><td>${t.icon} ${esc(t.name)}</td><td class="n">${Math.min(t.examCount, questionsOf(t.id).length)}</td></tr>`).join("")}</table>${onlyOwn() ? `<p class="muted">Die Prüfung nutzt nur deine eigenen Fragen.${TOPICS.some(t => questionsOf(t.id).length < t.examCount) ? " In manchen Sachgebieten hast du weniger Fragen als in der echten Prüfung, deshalb ist sie kürzer." : ""}</p>` : ""}</div>
       ${hist.length ? `<div class="card"><h3>Deine letzten Prüfungen</h3><table>${hist.map(h => `<tr><td>${new Date(h.d).toLocaleDateString("de-DE")} ${new Date(h.d).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</td><td class="n">${h.pts != null ? h.pts + "/" + h.max + " P." : h.right + "/" + h.total}</td><td class="n ${h.pass ? "pass" : "fail"}"><b>${h.pct}%</b></td></tr>`).join("")}</table></div>` : ""}`;
     foot(`<button class="btn" id="startExam">Prüfung starten</button>`);
     $("#startExam").onclick = startExam;
@@ -825,6 +828,9 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     $("#app").innerHTML = `<div class="card"><h2>🔢 Anzeige</h2>
       <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="showc" style="width:22px;height:22px;margin:0" ${S.settings.showCount ? "checked" : ""}> Anzahl der richtigen Antworten bei jeder Frage anzeigen</label>
       <p class="muted">In der echten IHK-Prüfung wird das nicht angezeigt. Schalte es zum Üben ein und für eine realistische Prüfung aus.</p></div>
+      <div class="card"><h2>📚 Fragen</h2>
+      <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="onlyown" style="width:22px;height:22px;margin:0" ${onlyOwn() ? "checked" : ""} ${S.custom.length ? "" : "disabled"}> Nur meine eigenen Fragen verwenden (${S.custom.length})</label>
+      <p class="muted">${S.custom.length ? "Ist das an, nutzen Lernen, Fehler wiederholen und Prüfung nur deine eigenen und importierten Fragen. Die eingebauten Fragen und dein Lernstand dazu bleiben erhalten und sind wieder da, wenn du das ausschaltest." : "Du hast noch keine eigenen Fragen. Importiere sie unter „Eigene Fragen“."}</p></div>
       <div class="card"><h2>🤖 KI-Lernhelfer</h2>
       <p class="muted"><b>Ohne Einrichtung:</b> Der Knopf „KI-Hilfe“ kopiert die Frage und öffnet Google Gemini (gemini.google.com, kostenloses Google-Konto genügt).<br>
       <b>Mit eigenem Schlüssel:</b> Chat direkt in der App. Es funktioniert nur ein <b>Google-Gemini-Schlüssel, der mit „AQ.“ beginnt</b> (kostenlos erhältlich auf <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>). Der Schlüssel bleibt nur auf diesem Gerät und ist nicht im Backup.</p>
@@ -838,6 +844,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       <div class="card"><p class="muted">Security LernApp · <a href="#/neu">Version ${esc(VERSION)}</a> · ${allQuestions().length} Fragen. Die Fragen sind selbst formuliert auf Grundlage der Gesetze (GG, GewO, BewachV, DSGVO, BDSG, BGB, StGB, StPO, WaffG, DGUV). Ohne Gewähr: Im Zweifel gilt der aktuelle Gesetzestext.</p></div>`;
     foot("");
     $("#showc").onchange = ev => { S.settings.showCount = ev.target.checked; save(); toast("Gespeichert"); };
+    $("#onlyown").onchange = ev => { S.settings.onlyOwn = ev.target.checked; save(); toast(ev.target.checked ? "Nur noch deine eigenen Fragen" : "Alle Fragen aktiv"); };
     const del = $("#aidel"); if (del) del.onclick = () => { aiSave({}); settingsPage(); toast("Schlüssel entfernt"); };
     const logTo = el => line => { el.innerHTML += esc(line) + "<br>"; };
     const sv = $("#aisave"); if (sv) sv.onclick = async () => {

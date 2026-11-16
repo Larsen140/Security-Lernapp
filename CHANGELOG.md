@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.13 vom 16.11.2026
+- **Version:** 1.14 vom 16.11.2026
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
@@ -33,6 +33,10 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 1.14 – 16.11.2026
+- Einstellung „Nur meine eigenen Fragen verwenden“ (`S.settings.onlyOwn`). Ohne ausdrückliche Wahl automatisch an, sobald importierte Fragen existieren. Wirkt auf Startseite, Sachgebiete, alle Lernmodi und Prüfung
+- Startseite zeigt „Fragen: nur deine eigenen (N)“ mit Link zu den Einstellungen; Prüfung kürzt Sachgebiete mit zu wenigen eigenen Fragen und weist darauf hin
 
 ### 1.13 – 16.11.2026
 - Prüfungssimulation zieht je Sachgebiet aus eingebauten und eigenen/importierten Fragen (vorher nur eingebaute)
