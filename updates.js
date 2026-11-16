@@ -2,6 +2,11 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "1.13", d: "2026-11-16", items: [
+      "Die Prüfungssimulation nimmt jetzt auch deine eigenen und importierten Fragen mit dazu"
+    ]
+  },
+  {
     v: "1.12", d: "2026-11-16", items: [
       "Fragen-Import liest jetzt auch PDF-Dateien: unter „Eigene Fragen“ auf „PDF- oder Textdatei wählen“ tippen",
       "Doppelte Fragen innerhalb einer Datei werden übersprungen, Seitenzahlen ignoriert"

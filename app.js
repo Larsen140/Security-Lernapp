@@ -274,7 +274,7 @@
   }
   function startExam() {
     let list = [];
-    TOPICS.forEach(t => { list = list.concat(shuffle(t.questions).slice(0, t.examCount)); });
+    TOPICS.forEach(t => { list = list.concat(shuffle(questionsOf(t.id)).slice(0, t.examCount)); }); // eingebaute und eigene/importierte Fragen
     exam = { list, order: list.map(prepOrder), ans: list.map(() => []), flag: {}, i: 0, end: Date.now() + EXAM_MIN * 60000, done: false };
     go("#/pruefung/laeuft");
   }

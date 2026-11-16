@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.12 vom 16.11.2026
+- **Version:** 1.13 vom 16.11.2026
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
@@ -33,6 +33,10 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 1.13 – 16.11.2026
+- Prüfungssimulation zieht je Sachgebiet aus eingebauten und eigenen/importierten Fragen (vorher nur eingebaute)
+- Ablauftest mit 777 importierten Fragen: Import, Startseite, Üben, Fehler wiederholen, Lernstand, KI-Hilfe und Prüfung funktionieren
 
 ### 1.12 – 16.11.2026
 - Import liest PDF- und Textdateien direkt auf dem Gerät. Der PDF-Leser (pdf.js 3.11.174 von cdnjs) wird nur bei Bedarf geladen, dafür ist Internet nötig
