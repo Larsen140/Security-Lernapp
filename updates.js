@@ -2,6 +2,13 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "1.16", d: "2026-11-16", items: [
+      "Man kann die App nicht mehr kleiner zoomen als den Bildschirm",
+      "Sehr lange Wörter in importierten Fragen werden umbrochen, statt über den Rand zu ragen",
+      "Kein versehentliches Zoomen mehr durch doppeltes Tippen"
+    ]
+  },
+  {
     v: "1.15", d: "2026-11-16", items: [
       "Import erkennt jetzt auch Listen, in denen nur die richtigen Antworten als Aufzählung (•) stehen. Die App ergänzt dann falsche Antworten aus anderen Fragen desselben Sachgebiets",
       "„Lösungsvorschlag“ wird bei der Frage vermerkt, Zwischenüberschriften und Seitenzahlen werden ignoriert",

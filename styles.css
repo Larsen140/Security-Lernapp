@@ -35,7 +35,7 @@
 }}
 
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font:17px/1.5 var(--body);-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+html,body{overflow-x:hidden;max-width:100%;touch-action:manipulation;overflow-wrap:anywhere;margin:0;background:var(--bg);color:var(--text);font:17px/1.5 var(--body);-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
 a{color:var(--primary)}
 :focus-visible{outline:3px solid var(--signal);outline-offset:2px}
 

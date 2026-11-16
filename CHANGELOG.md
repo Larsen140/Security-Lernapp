@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.15 vom 16.11.2026
+- **Version:** 1.16 vom 16.11.2026
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
@@ -33,6 +33,11 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 1.16 – 16.11.2026
+- Viewport `minimum-scale=1`: Rauszoomen nicht mehr möglich, Reinzoomen bleibt erlaubt (Barrierefreiheit)
+- `overflow-wrap:anywhere`, `overflow-x:hidden`, `touch-action:manipulation` für html/body; Ursache war ein zusammengeklebtes langes Wort aus einer importierten PDF auf „Eigene Fragen“
+- Alle Seiten auf 375 px Breite geprüft: nichts ragt mehr über den Rand
 
 ### 1.15 – 16.11.2026
 - Import: zweites Format „nur Lösungen“ (Frage + Aufzählung der richtigen Antworten). `addDistractors()` ergänzt falsche Antworten aus anderen Fragen desselben Sachgebiets (möglichst wenig Wortüberschneidung), bis 4 Antworten vorhanden sind
