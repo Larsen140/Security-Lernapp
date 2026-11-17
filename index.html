@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, viewport-fit=cover">
   <title>Security LernApp</title>
   <meta name="description" content="Lern-App für die Sachkundeprüfung nach § 34a GewO">
-  <meta name="theme-color" content="#1d4ed8">
+  <meta name="theme-color" content="#0D1B2E">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Security Lernen">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -17,6 +19,13 @@
   <header><button id="back" aria-label="Zurück">◀</button><h1 id="title">Security LernApp</h1></header>
   <main id="app"></main>
   <div class="sticky-foot" id="foot" style="display:none"></div>
+  <nav class="tabs" id="tabs" aria-label="Hauptmenü">
+    <a href="#/" data-tab="start"><span class="ti">🏠</span>Start</a>
+    <a href="#/themen" data-tab="lernen"><span class="ti">📚</span>Lernen</a>
+    <a href="#/pruefung" data-tab="pruefung"><span class="ti">📝</span>Prüfung</a>
+    <a href="#/eigene" data-tab="fragen"><span class="ti">✏️</span>Fragen</a>
+    <a href="#/einstellungen" data-tab="mehr"><span class="ti">⚙️</span>Mehr</a>
+  </nav>
   <div class="toast" id="toast"></div>
     <script src="01-rdoeso.js"></script>
     <script src="02-gewo.js"></script>

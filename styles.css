@@ -46,7 +46,7 @@ header h1{font:700 23px/1.1 var(--display);letter-spacing:.01em;margin:0;flex:1;
 header button{background:rgba(255,255,255,.1);color:#fff;border:0;border-radius:10px;width:38px;height:34px;font-size:15px;cursor:pointer;transition:background .15s}
 header button:active{background:rgba(255,255,255,.22)}
 
-main{max-width:720px;margin:0 auto;padding:18px 16px 100px}
+main{max-width:720px;margin:0 auto;padding:18px 16px calc(96px + env(safe-area-inset-bottom))}
 .card{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
 h2{font:700 25px/1.15 var(--display);margin:4px 0 12px;letter-spacing:.005em}
 h3{font:700 20px/1.2 var(--display);margin:16px 0 6px}
@@ -229,3 +229,66 @@ label{font-size:15px;font-weight:600}
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
   .confetti{display:none}
 }
+
+/* ---------- Navigation unten ---------- */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;justify-content:space-around;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px 4px max(6px,env(safe-area-inset-bottom))}
+.tabs a{flex:1;max-width:120px;display:flex;flex-direction:column;align-items:center;gap:1px;text-decoration:none;color:var(--muted);font:600 12px/1.2 var(--body);padding:4px 0;border-radius:12px;transition:color .15s}
+.tabs a .ti{font-size:21px;line-height:1.15;filter:grayscale(1);opacity:.7;transition:transform .2s var(--ease),filter .2s,opacity .2s}
+.tabs a.on{color:var(--text)}
+.tabs a.on .ti{filter:none;opacity:1;transform:translateY(-1px) scale(1.08)}
+.tabs a.on::after{content:"";width:18px;height:3px;border-radius:2px;background:var(--signal);margin-top:2px}
+body.has-foot .tabs{display:none}
+
+/* ---------- Startseite ---------- */
+.resume{display:block;width:100%;text-align:left;border:0;cursor:pointer;background:var(--signal);color:var(--ink);border-radius:16px;padding:12px 16px;margin-bottom:14px;font:inherit;box-shadow:0 8px 20px -12px rgba(255,196,0,.8);animation:drop .4s var(--ease)}
+.resume b{display:block;font:700 20px/1.2 var(--display)}
+.resume span{font-size:15px;font-weight:600}
+.daily{display:flex;gap:14px;align-items:center;padding:12px 14px}
+.flame{flex:none;width:54px;height:54px;border-radius:16px;background:var(--bg);display:grid;place-items:center;font-size:22px;line-height:1;position:relative;filter:grayscale(1);opacity:.6}
+.flame.on{filter:none;opacity:1;background:color-mix(in srgb,var(--signal) 22%,var(--card))}
+.flame b{position:absolute;right:-4px;bottom:-4px;min-width:22px;height:22px;padding:0 5px;border-radius:11px;background:var(--ink);color:var(--signal);font:700 14px/22px var(--display);text-align:center}
+.dinfo{flex:1;min-width:0}
+.dinfo>b{display:block;font:700 19px/1.2 var(--display)}
+.dinfo .muted{font-size:14px}
+.dbar{height:8px;border-radius:5px;background:var(--grey);overflow:hidden;margin-top:6px}
+.dbar i{display:block;height:100%;background:var(--stripe);background-size:28px 28px;border-radius:5px;transition:width 1s var(--ease)}
+.btn.big{padding:15px 18px;font-size:23px}
+.btn.big small{display:block;font:500 14px/1.3 var(--body);opacity:.8;margin-top:2px}
+.examcard{display:flex;align-items:center;gap:12px;width:100%;border:0;text-align:left;font:inherit;color:var(--text);cursor:pointer;margin-top:10px;transition:transform .12s var(--ease)}
+.examcard:active{transform:scale(.98)}
+.examcard .big{font-size:28px}
+.examcard .einfo{flex:1}
+.examcard .einfo b{display:block;font:700 20px/1.2 var(--display)}
+.examcard .einfo .muted b{display:inline;font:inherit;font-weight:700}
+.chev{font-size:30px;color:var(--muted);line-height:1}
+button.card.topic{width:100%;border:0;text-align:left;font:inherit;color:var(--text);animation:rise .4s var(--ease) both;animation-delay:var(--d,0ms)}
+.tpct{flex:none;font:700 26px/1 var(--display);font-variant-numeric:tabular-nums;color:var(--text);min-width:52px;text-align:right}
+.tpct small{font-size:14px;color:var(--muted)}
+
+/* ---------- Lernen ---------- */
+.combo{display:inline-block;margin-left:4px;font:700 14px/1.6 var(--body);padding:0 8px;border-radius:20px;background:color-mix(in srgb,var(--signal) 25%,var(--card));color:var(--text)}
+.combo.pop{animation:boxpop .45s var(--ease)}
+.slidein{animation:slidein .32s var(--ease)}
+@keyframes slidein{from{opacity:0;transform:translateX(28px)}}
+#app.enter .slidein{animation:slidein .32s var(--ease)}
+
+/* ---------- Prüfung ---------- */
+.runcard{border:2px solid var(--signal)}
+.runcard h2{margin-top:0}
+.perrow{display:grid;grid-template-columns:minmax(0,1fr) 38% auto;gap:10px;align-items:center;padding:6px 0;font-size:15px}
+.perrow .n{font-variant-numeric:tabular-nums;color:var(--muted);min-width:44px;text-align:right}
+.pbar{height:9px;border-radius:5px;background:var(--grey);overflow:hidden}
+.pbar i{display:block;height:100%;border-radius:5px;animation:grow 1s var(--ease) both;transform-origin:left}
+@keyframes grow{from{transform:scaleX(0)}}
+
+/* ---------- Eigene Fragen ---------- */
+details.fold summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+details.fold summary::-webkit-details-marker{display:none}
+details.fold summary::after{content:"＋";font-size:22px;color:var(--muted)}
+details.fold[open] summary::after{content:"－"}
+details.fold summary h2{margin:4px 0}
+details.fold[open] summary{margin-bottom:10px}
+.ownq{border-bottom:1px solid var(--line);padding:10px 0}
+.ownq b{display:block;margin:4px 0 2px;font-weight:600}
+.ownq .flagbtn{margin-top:6px}
+input[type=search]{-webkit-appearance:none;appearance:none}

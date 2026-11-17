@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 1.16 vom 16.11.2026
+- **Version:** 2.0 vom 17.11.2026
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
@@ -33,6 +33,30 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.0 – 17.11.2026
+**Aufbau**
+- Untere Navigation (Start, Lernen, Prüfung, Fragen, Mehr); wird in Lernrunden und Prüfung ausgeblendet
+- Startseite neu: Lernstand, Lernserie und Tagesziel, Weiterlernen, Kacheln (Fehler, Schnelltest, Markiert, KI), Prüfungskarte, Hinweis bei laufender Prüfung
+- Neue Seite „Lernen“ (`#/themen`) mit allen Sachgebieten und Prozent je Sachgebiet
+- „Eigene Fragen“: Suche, Filter nach Sachgebiet, 30 Fragen pro Seite, „Neue Frage“ einklappbar
+
+**Aussehen, Animation, Töne**
+- Töne per Web Audio (keine Dateien): Tippen, richtig, falsch, Serie, Rundenende, bestanden/nicht bestanden. Einstellung „Töne“, Vibration bei falsch (Android)
+- Serien-Zähler 🔥 in Lernrunden, Hereingleiten der nächsten Frage, Balken je Sachgebiet im Prüfungsergebnis
+- Neues App-Symbol (Nachtblau, gelbes Schild, Absperrband), `theme-color` und Manifest-Farben auf Nachtblau
+- Tastatur am Computer: 1–6 wählt Antworten, Enter prüft/weiter, Pfeile in der Prüfung
+
+**Fehler behoben**
+- Absturz bei ungültigen Adressen wie `#/lernen/gewo`
+- „Markierte Fragen“ zählte gelöschte und ausgeblendete Fragen mit
+- Laufende Prüfung ging beim Schließen der App verloren → jetzt in `slapp-exam` gespeichert und fortsetzbar; abgelaufene Zeit wird beim Öffnen ausgewertet
+- Laufende Prüfung wurde über „Prüfung starten“ überschrieben → Fortsetzen/Verwerfen
+- Nach einer abgeschlossenen Prüfung lief das automatische Update auf der Startseite nicht mehr
+- Backup-Download in der installierten iPhone-App → Teilen-Dialog
+- Statusleiste noch im alten Blau
+
+**Getestet:** alle Seiten in vier Speicherzuständen ohne Fehler, Lernrunde, Prüfung über Neuladen und Zeitablauf, Einstellungen, Tastatur, hell/dunkel auf 390 px Breite
 
 ### 1.16 – 16.11.2026
 - Viewport `minimum-scale=1`: Rauszoomen nicht mehr möglich, Reinzoomen bleibt erlaubt (Barrierefreiheit)

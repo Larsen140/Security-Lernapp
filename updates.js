@@ -2,6 +2,20 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.0", d: "2026-11-17", items: [
+      "Neue Navigation unten: Start, Lernen, Prüfung, Fragen, Mehr",
+      "Neue Startseite mit Lernserie 🔥 (Tage in Folge) und Tagesziel, einstellbar unter Mehr",
+      "Töne bei richtigen und falschen Antworten, am Rundenende und beim Prüfungsergebnis (abschaltbar)",
+      "Serien-Zähler beim Lernen: 🔥 zeigt, wie viele du in Folge richtig hast",
+      "Fragen gleiten beim Weiterblättern herein, Ergebnis pro Sachgebiet als Balken",
+      "Die Prüfung wird gespeichert: Schließt sich die App, kannst du genau dort weitermachen. Läuft die Zeit ab, wird automatisch ausgewertet",
+      "„Eigene Fragen“ mit Suche und Filter nach Sachgebiet statt einer endlosen Liste",
+      "Backup über „Teilen“, damit es auch auf dem iPhone klappt (z. B. „In Dateien sichern“)",
+      "Neues App-Symbol und dunkle Statusleiste passend zum Design",
+      "Behoben: Absturz bei ungültigen Lern-Adressen, falsche Zahl bei „Markierte Fragen“, laufende Prüfung wurde beim Wechsel der Seite überschrieben"
+    ]
+  },
+  {
     v: "1.16", d: "2026-11-16", items: [
       "Man kann die App nicht mehr kleiner zoomen als den Bildschirm",
       "Sehr lange Wörter in importierten Fragen werden umbrochen, statt über den Rand zu ragen",

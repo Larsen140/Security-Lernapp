@@ -11,7 +11,8 @@
     return JSON.parse(JSON.stringify(defaults));
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
-  S.settings = Object.assign({ showCount: true }, S.settings || {});
+  S.settings = Object.assign({ showCount: true, sound: true, goal: 20 }, S.settings || {});
+  S.days = S.days || {};
   // KI-Zugang wird getrennt gespeichert und ist NICHT im Backup enthalten
   const AIKEY = "slapp-ai";
   // Nur Google-Gemini-Schlüssel im Format „AQ.…“ werden akzeptiert
@@ -42,6 +43,18 @@
   }
   const allQuestions = () => TOPICS.flatMap(t => questionsOf(t.id));
   const qById = id => allQuestions().find(q => q.id === id);
+  // Sucht eine Frage auch dann, wenn sie gerade ausgeblendet ist (für gespeicherte Prüfungen)
+  const qAny = id => { for (const t of TOPICS) { const q = t.questions.find(x => x.id === id); if (q) return q; } return S.custom.find(x => x.id === id); };
+  const flaggedCount = () => allQuestions().filter(q => S.flags[q.id]).length;
+  // Lerntage: wie viele Fragen pro Tag beantwortet wurden (für Serie und Tagesziel)
+  const dayKey = (d = new Date()) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const today = () => S.days[dayKey()] || 0;
+  function streak() {
+    let n = 0; const d = new Date();
+    if (!S.days[dayKey(d)]) d.setDate(d.getDate() - 1);
+    while (S.days[dayKey(d)]) { n++; d.setDate(d.getDate() - 1); }
+    return n;
+  }
 
   // Status: 0 neu (grau), 1 falsch (rot), 2 einmal richtig (gelb), 3 sicher (grün = 2x in Folge richtig)
   function status(q) {
@@ -54,13 +67,44 @@
     const p = S.prog[q.id] || { n: 0, s: 0, w: 0 };
     p.n++; p.t = Date.now(); p.last = ok;
     if (ok) p.s++; else { p.s = 0; p.w++; }
-    S.prog[q.id] = p; save();
+    S.prog[q.id] = p; S.days[dayKey()] = today() + 1; save();
   }
   function counts(list) {
     const c = [0, 0, 0, 0];
     list.forEach(q => c[status(q)]++);
     return { neu: c[0], rot: c[1], gelb: c[2], gruen: c[3], total: list.length };
   }
+
+  // ---------- Töne ----------
+  // Kurze Klänge, im Browser erzeugt. Abschaltbar in den Einstellungen.
+  const SFX = (() => {
+    let ctx = null;
+    const ac = () => {
+      if (!ctx) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; try { ctx = new A(); } catch (e) { return null; } }
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      return ctx;
+    };
+    const tone = (f, at, dur, type, vol, glide) => {
+      const a = ac(); if (!a) return;
+      const t = a.currentTime + at, o = a.createOscillator(), g = a.createGain();
+      o.type = type || "sine"; o.frequency.setValueAtTime(f, t);
+      if (glide) o.frequency.exponentialRampToValueAtTime(glide, t + dur);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.06, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + 0.03);
+    };
+    const on = () => S.settings.sound !== false;
+    return {
+      unlock() { if (on()) ac(); },
+      tap() { if (on()) tone(1200, 0, 0.035, "triangle", 0.025); },
+      ok() { if (on()) { tone(660, 0, 0.11, "sine", 0.07); tone(990, 0.08, 0.2, "sine", 0.07); } },
+      bad() { if (on()) tone(240, 0, 0.26, "triangle", 0.06, 150); if (navigator.vibrate) navigator.vibrate(50); },
+      combo(n) { if (on()) tone(700 + Math.min(n, 12) * 45, 0.22, 0.09, "sine", 0.045); },
+      done() { if (on()) [523, 659, 784].forEach((f, i) => tone(f, i * 0.1, 0.22, "sine", 0.06)); },
+      pass() { if (on()) [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.13, i === 3 ? 0.6 : 0.2, "triangle", 0.07)); },
+      fail() { if (on()) [392, 330, 262].forEach((f, i) => tone(f, i * 0.17, 0.28, "sine", 0.055)); },
+    };
+  })();
+  ["pointerdown", "touchend", "click"].forEach(ev => document.addEventListener(ev, () => SFX.unlock(), { passive: true }));
 
   // ---------- Hilfen ----------
   const $ = s => document.querySelector(s);
@@ -100,7 +144,10 @@
     $("#back").style.visibility = back ? "visible" : "hidden";
     $("#back").onclick = () => { if (typeof back === "function") back(); else go(back); };
   }
-  function foot(html) { $("#foot").innerHTML = html ? `<div class="inner">${html}</div>` : ""; $("#foot").style.display = html ? "block" : "none"; }
+  function foot(html) {
+    $("#foot").innerHTML = html ? `<div class="inner">${html}</div>` : ""; $("#foot").style.display = html ? "block" : "none";
+    document.body.classList.toggle("has-foot", !!html);
+  }
   function go(hash) { location.hash = hash; }
   let timerHandle = null;
   function clearTimer() { if (timerHandle) { clearInterval(timerHandle); timerHandle = null; } }
@@ -115,27 +162,23 @@
     const pct = pctSafe + pctHalf;
     const wrong = all.filter(q => status(q) === 1).length;
     const lastExam = S.exams[S.exams.length - 1];
-    let html = `<div class="badge"><div class="tape"><i id="tape" data-w="${pctSafe}"></i><i id="tape2" class="half" data-l="${pctSafe}" data-w="${pctHalf}"></i></div>
+    const run = exam && !exam.done ? exam : null;
+    const st = streak(), td = today(), goal = S.settings.goal || 20, gpct = Math.min(100, td / goal * 100);
+    let html = `${run ? `<button class="resume" data-go="#/pruefung/laeuft"><b>📝 Prüfung läuft</b><span>Frage ${run.i + 1} von ${run.list.length} · noch ${Math.max(0, Math.ceil((run.end - Date.now()) / 60000))} Min. · Weiter ▶</span></button>` : ""}
+      <div class="badge"><div class="tape"><i id="tape" data-w="${pctSafe}"></i><i id="tape2" class="half" data-l="${pctSafe}" data-w="${pctHalf}"></i></div>
       <div class="top"><div class="title">Sachkunde § 34a GewO<b>Dein Lernstand</b></div><div class="pct"><span id="pctnum" data-to="${pct}" data-dec="${pct > 0 && pct < 10 ? 1 : 0}">0</span><small>%</small></div></div>
       <div class="stats"><div class="st-g"><b>${c.gruen}</b>sicher</div><div class="st-y"><b>${c.gelb}</b>1× richtig</div><div class="st-r"><b>${c.rot}</b>falsch</div><div><b>${c.neu}</b>neu</div></div>
-      ${onlyOwn() ? `<div class="last">Fragen: nur deine eigenen (${S.custom.length}) · <a href="#/einstellungen" style="color:#FFCC5C">ändern</a></div>` : ""}
-      ${lastExam ? `<div class="last">Letzte Prüfung: <b class="${lastExam.pass ? "pass" : "fail"}">${lastExam.pct} %, ${lastExam.pass ? "bestanden" : "nicht bestanden"}</b></div>` : ""}</div>
-      <button class="btn" data-go="#/lernen/mix">▶ Weiterlernen (alle Themen)</button>
+      ${onlyOwn() ? `<div class="last">Fragen: nur deine eigenen (${S.custom.length}) · <a href="#/einstellungen" style="color:#FFCC5C">ändern</a></div>` : ""}</div>
+      <div class="card daily"><div class="flame ${st ? "on" : ""}">🔥<b>${st}</b></div><div class="dinfo"><b>${st ? st + (st === 1 ? " Tag" : " Tage") + " in Folge" : "Starte deine Lernserie"}</b>
+        <span class="muted">${td >= goal ? "Tagesziel geschafft ✅ " + td + " Fragen heute" : "Heute " + td + " von " + goal + " Fragen"}</span><div class="dbar"><i style="width:${gpct}%"></i></div></div></div>
+      <button class="btn big" data-go="#/lernen/mix">▶ Weiterlernen<small>${c.rot ? "Fehler und neue Fragen zuerst" : "Neue und unsichere Fragen zuerst"}</small></button>
       <div class="grid2">
-        <button class="tile" data-go="#/lernen/fehler"><span class="big">🔁</span><b>Fehler wiederholen</b><span class="muted">${wrong} Fragen</span></button>
-        <button class="tile" data-go="#/pruefung"><span class="big">📝</span><b>Prüfung simulieren</b><span class="muted">82 Fragen · 120 Min.</span></button>
-        <button class="tile" data-go="#/markiert"><span class="big">⭐</span><b>Markierte Fragen</b><span class="muted">${Object.keys(S.flags).length} Fragen</span></button>
-        <button class="tile" data-go="#/eigene"><span class="big">✏️</span><b>Eigene Fragen</b><span class="muted">${S.custom.length} Fragen</span></button>
+        <button class="tile" data-go="#/lernen/fehler"><span class="big">🔁</span><b>Fehler wiederholen</b><span class="muted">${wrong} ${wrong === 1 ? "Frage" : "Fragen"}</span></button>
+        <button class="tile" data-go="#/lernen/quick"><span class="big">⚡</span><b>Schnelltest</b><span class="muted">10 Zufallsfragen</span></button>
+        <button class="tile" data-go="#/markiert"><span class="big">⭐</span><b>Markierte Fragen</b><span class="muted">${flaggedCount()} ${flaggedCount() === 1 ? "Frage" : "Fragen"}</span></button>
+        <button class="tile" id="aihome"><span class="big">🤖</span><b>KI-Lernhelfer</b><span class="muted">Frag alles zum Stoff</span></button>
       </div>
-      <button class="btn sec" id="aihome">🤖 KI-Lernhelfer fragen</button>
-      <div class="section-title">Sachgebiete</div>`;
-    TOPICS.forEach(t => {
-      const tc = counts(questionsOf(t.id));
-      html += `<div class="card topic" data-go="#/thema/${t.id}"><div class="ico">${t.icon}</div><div class="info">
-        <div class="name">${esc(t.name)}</div><div class="muted">${tc.gruen}/${tc.total} sicher · ${t.examCount} Fragen in der Prüfung</div>${bar(tc)}</div></div>`;
-    });
-    html += `<div class="legend"><span><i class="g"></i>sicher (2× richtig)</span><span><i class="y"></i>1× richtig</span><span><i class="r"></i>zuletzt falsch</span><span><i style="background:var(--grey)"></i>neu</span></div>
-      <button class="btn ghost" style="margin-top:20px" data-go="#/einstellungen">⚙️ Einstellungen & Backup</button>
+      <button class="card examcard" data-go="#/pruefung"><span class="big">📝</span><span class="einfo"><b>Prüfung simulieren</b><span class="muted">${examSize()} Fragen · 120 Min.${lastExam ? ` · zuletzt <b class="${lastExam.pass ? "pass" : "fail"}">${lastExam.pct} %</b>` : ""}</span></span><span class="chev">›</span></button>
       ${VERSION ? `<button class="version" data-go="#/neu">Version ${esc(VERSION)} · Stand ${fmtDate(UPDATES[0].d)} · Was ist neu?</button>` : ""}`;
     $("#app").innerHTML = html; foot("");
     // Absperrband füllt sich, Prozentzahl zählt hoch
@@ -148,16 +191,30 @@
     if (VERSION && S.seenVersion !== VERSION) {
       const first = !S.seenVersion && !Object.keys(S.prog).length;
       S.seenVersion = VERSION; save();
-      if (!first) toast("Update auf Version " + VERSION + " – tippe unten auf „Was ist neu?“");
+      if (!first) toast("Update auf Version " + VERSION + " – Neuerungen unter Mehr → Was ist neu?");
     }
     $("#aihome").onclick = () => openAI(null);
+  }
+
+  // ---------- Lernen: alle Sachgebiete ----------
+  function topicsPage() {
+    clearTimer();
+    setHeader("Lernen", null);
+    let html = `<p class="muted" style="margin:0 2px 12px">Wähle ein Sachgebiet. Die Zahl rechts zeigt, wie viel du davon sicher kannst.</p>`;
+    TOPICS.forEach((t, k) => {
+      const tc = counts(questionsOf(t.id)), p = tc.total ? Math.round((tc.gruen + tc.gelb / 2) / tc.total * 100) : 0;
+      html += `<button class="card topic" data-go="#/thema/${t.id}" style="--d:${k * 35}ms"><div class="ico">${t.icon}</div><div class="info">
+        <div class="name">${esc(t.name)}</div><div class="muted">${tc.total} Fragen · ${t.examCount} in der Prüfung</div>${bar(tc)}</div><div class="tpct">${p}<small>%</small></div></button>`;
+    });
+    html += `<div class="legend"><span><i class="g"></i>sicher (2× richtig)</span><span><i class="y"></i>1× richtig</span><span><i class="r"></i>zuletzt falsch</span><span><i style="background:var(--grey)"></i>neu</span></div>`;
+    $("#app").innerHTML = html; foot("");
   }
 
   // ---------- Themenseite ----------
   function topicPage(tid) {
     clearTimer();
     const t = topicById(tid); if (!t) return go("#/");
-    setHeader(t.short, "#/");
+    setHeader(t.short, "#/themen");
     const list = questionsOf(tid), c = counts(list);
     $("#app").innerHTML = `<div class="card"><div class="topic"><div class="ico">${t.icon}</div><div class="info"><h2 style="margin:0">${esc(t.name)}</h2>
       <div class="muted">${list.length} Fragen · ${t.examCount} davon kommen in der Prüfung</div></div></div>${bar(c)}
@@ -190,9 +247,11 @@
     if (mode === "mix") { list = pickSmart(allQuestions(), 20); title = "Weiterlernen"; }
     else if (mode === "fehler") { list = shuffle(allQuestions().filter(q => status(q) === 1)); title = "Fehler wiederholen"; }
     else if (mode === "markiert") { list = shuffle(allQuestions().filter(q => S.flags[q.id])); title = "Markierte Fragen"; }
+    else if (mode === "quick") { list = shuffle(allQuestions()).slice(0, 10); title = "Schnelltest"; }
     else {
-      const [k, tid] = [mode[0], mode.slice(2)]; const all = questionsOf(tid); back = "#/thema/" + tid;
-      const t = topicById(tid); if (!t) return go("#/");
+      const [k, tid] = [mode[0], mode.slice(2)];
+      const t = topicById(tid); if (!t || mode[1] !== "-") return go("#/themen");
+      const all = questionsOf(tid); back = "#/thema/" + tid;
       if (k === "t") { list = pickSmart(all, 20); title = t.short + " üben"; }
       else if (k === "f") { list = shuffle(all.filter(q => status(q) === 1)); title = t.short + " Fehler"; }
       else if (k === "a") { list = all.slice(); title = t.short + " alle Fragen"; }
@@ -203,7 +262,7 @@
       $("#app").innerHTML = `<div class="card"><h2>Nichts zu tun 🎉</h2><p>Hier gibt es gerade keine Fragen. Wähle einen anderen Lernmodus.</p></div>`;
       foot(`<button class="btn" data-go="${back}">Zurück</button>`); return;
     }
-    session = { list, i: 0, sel: [], checked: false, right: 0, title, back, order: null };
+    session = { list, i: 0, sel: [], checked: false, right: 0, title, back, order: null, combo: 0, best: 0 };
     renderQ();
   }
   function prepOrder(q) { return shuffle(q.a.map((_, i) => i)); }
@@ -212,8 +271,8 @@
     if (!s.order) s.order = prepOrder(q);
     setHeader(s.title, s.back);
     const t = topicById(q.topic);
-    let html = `<div class="progress"><div style="width:${s.i / s.list.length * 100}%"></div></div>
-      <div class="qhead"><span>Frage ${s.i + 1} von ${s.list.length} · <span class="pill">${t ? t.short : ""}</span>${q.own ? '<span class="pill">eigene</span>' : ""}</span>
+    let html = `<div class="progress"><div style="width:${(s.i + (s.checked ? 1 : 0)) / s.list.length * 100}%"></div></div>
+      <div class="qhead"><span>Frage ${s.i + 1} von ${s.list.length} · <span class="pill">${t ? t.short : ""}</span>${q.own ? '<span class="pill">eigene</span>' : ""}${s.combo >= 2 ? `<span class="combo${s.just ? " pop" : ""}">🔥 ${s.combo}</span>` : ""}</span>
       <span><button class="flagbtn" id="aiq">🤖 KI-Hilfe</button> <button class="flagbtn ${S.flags[q.id] ? "on" : ""}" id="flag">⭐ ${S.flags[q.id] ? "markiert" : "merken"}</button></span></div>
       <div class="card"><div class="qtext">${esc(q.q)}</div><div class="hint">${S.settings.showCount ? `<span class="count">👉 ${countText(q)}</span> · ${s.sel.length} gewählt` : "Wähle alle richtigen Antworten aus (eine oder mehrere)."}</div>`;
     const just = s.just; s.just = false;
@@ -229,20 +288,27 @@
     });
     if (s.checked) {
       const ok = isRight(q, s.sel);
-      html += `<div class="expl ${ok ? "ok" : "bad"}"><b>${ok ? "✅ Richtig!" : "❌ Leider falsch."}</b> ${esc(q.e || "")}${q.p ? `<br><span class="para">📌 ${esc(q.p)}</span>` : ""}</div>`;
+      const praise = ["Richtig!", "Stark!", "Genau!", "Sitzt!", "Sauber!"][s.i % 5];
+      html += `<div class="expl ${ok ? "ok" : "bad"}"><b>${ok ? "✅ " + praise + (s.combo >= 3 ? ` ${s.combo} in Folge 🔥` : "") : "❌ Leider falsch."}</b> ${esc(q.e || "")}${q.p ? `<br><span class="para">📌 ${esc(q.p)}</span>` : ""}</div>`;
     }
     html += `</div>`;
     $("#app").innerHTML = html;
+    if (s.slide) { s.slide = false; const cd = $("#app .card"); if (cd) cd.classList.add("slidein"); }
     $("#flag").onclick = () => { if (S.flags[q.id]) delete S.flags[q.id]; else S.flags[q.id] = 1; save(); renderQ(); };
     $("#aiq").onclick = () => openAI(q, s.checked ? s.sel : null, s.order);
     document.querySelectorAll(".ans").forEach(b => b.onclick = () => {
       const a = +b.dataset.a; const i = s.sel.indexOf(a);
-      if (i >= 0) s.sel.splice(i, 1); else s.sel.push(a); renderQ();
+      if (i >= 0) s.sel.splice(i, 1); else s.sel.push(a); SFX.tap(); renderQ();
     });
     if (!s.checked) foot(`<button class="btn" id="check" ${s.sel.length ? "" : "disabled"}>Antwort prüfen</button>`);
     else foot(`<button class="btn" id="next">${s.i + 1 < s.list.length ? "Nächste Frage ▶" : "Auswertung ▶"}</button>`);
-    const ch = $("#check"); if (ch) ch.onclick = () => { s.checked = true; s.just = true; const ok = isRight(q, s.sel); if (ok) s.right++; record(q, ok); renderQ(); };
-    const nx = $("#next"); if (nx) nx.onclick = () => { s.i++; s.sel = []; s.checked = false; s.order = null; if (s.i >= s.list.length) learnDone(); else { renderQ(); enter(); window.scrollTo(0, 0); } };
+    const ch = $("#check"); if (ch) ch.onclick = () => {
+      s.checked = true; s.just = true; const ok = isRight(q, s.sel);
+      if (ok) { s.right++; s.combo++; s.best = Math.max(s.best, s.combo); SFX.ok(); if (s.combo >= 3) SFX.combo(s.combo); } else { s.combo = 0; SFX.bad(); }
+      record(q, ok); renderQ();
+      const ex = $(".expl"); if (ex && ex.getBoundingClientRect().bottom > innerHeight - 90) ex.scrollIntoView({ behavior: calm() ? "auto" : "smooth", block: "center" });
+    };
+    const nx = $("#next"); if (nx) nx.onclick = () => { s.i++; s.sel = []; s.checked = false; s.order = null; if (s.i >= s.list.length) learnDone(); else { s.slide = true; window.scrollTo(0, 0); renderQ(); } };
   }
   function isRight(q, sel) { return sel.length === q.c.length && sel.every(a => q.c.includes(a)); }
   // Punkte wie in der IHK-Prüfung seit 1. Juli 2025: je richtig angekreuzter Antwort ein Punkt (Teilpunkte).
@@ -252,40 +318,68 @@
     const s = session, pct = Math.round(s.right / s.list.length * 100);
     $("#app").innerHTML = `<div class="card" style="text-align:center"><h2>Runde geschafft!</h2>
       <div class="result ${pct >= 50 ? "pass" : "fail"}"><span id="rnum" data-to="${s.right}">0</span> / ${s.list.length}</div><p class="muted">${pct} % richtig</p>
-      <p>${pct >= 80 ? "Stark! Weiter so 💪" : pct >= 50 ? "Gut! Die falschen Fragen kommen bald wieder." : "Dranbleiben! Lies ggf. das Lernkapitel noch einmal."}</p></div>`;
+      <p>${pct >= 80 ? "Stark! Weiter so 💪" : pct >= 50 ? "Gut! Die falschen Fragen kommen bald wieder." : "Dranbleiben! Lies ggf. das Lernkapitel noch einmal."}</p>
+      ${s.best >= 3 ? `<p class="muted">Beste Serie: 🔥 ${s.best} richtig in Folge</p>` : ""}
+      <p class="muted">Heute: ${today()} ${today() === 1 ? "Frage" : "Fragen"}${today() >= (S.settings.goal || 20) ? " · Tagesziel geschafft ✅" : " · Ziel " + (S.settings.goal || 20)}</p></div>`;
     foot(`<button class="btn sec" data-go="${s.back}">Zurück</button><button class="btn" id="again">Neue Runde</button>`);
-    enter(); countUp($("#rnum"), 800); if (pct >= 80) setTimeout(() => confetti(60), 500);
+    enter(); countUp($("#rnum"), 800); SFX.done(); if (pct >= 80) setTimeout(() => confetti(60), 500);
     $("#again").onclick = () => router(true);
   }
 
   // ---------- Prüfungssimulation ----------
-  let exam = null;
+  const examSize = () => TOPICS.reduce((n, t) => n + Math.min(t.examCount, questionsOf(t.id).length), 0);
   const EXAM_MIN = 120;
+  // Die laufende Prüfung wird gespeichert, damit sie das Schließen der App übersteht
+  const EXKEY = "slapp-exam";
+  function saveExam() {
+    try {
+      if (!exam) return localStorage.removeItem(EXKEY);
+      const { list, ...rest } = exam;
+      localStorage.setItem(EXKEY, JSON.stringify(Object.assign(rest, { ids: list.map(q => q.id) })));
+    } catch (e) {}
+  }
+  function loadExam() {
+    try {
+      const d = JSON.parse(localStorage.getItem(EXKEY)); if (!d || !d.ids) return null;
+      const list = d.ids.map(qAny); if (list.some(q => !q)) return null;
+      delete d.ids; return Object.assign(d, { list });
+    } catch (e) { return null; }
+  }
+  let exam = loadExam();
   function examIntro() {
     clearTimer();
-    setHeader("Prüfungssimulation", "#/");
+    setHeader("Prüfungssimulation", null);
     const hist = S.exams.slice(-5).reverse();
-    $("#app").innerHTML = `<div class="card"><h2>📝 Wie in der IHK-Prüfung</h2>
-      <ul><li><b>82 Fragen</b> aus allen 9 Sachgebieten, verteilt wie in der Prüfung</li>
+    const run = exam && !exam.done ? exam : null;
+    $("#app").innerHTML = `${run ? `<div class="card runcard"><h2>⏱ Prüfung läuft</h2><p>Frage ${run.i + 1} von ${run.list.length}, ${run.ans.filter(a => a.length).length} beantwortet, noch ${Math.max(0, Math.ceil((run.end - Date.now()) / 60000))} Minuten.</p>
+      <button class="btn" data-go="#/pruefung/laeuft">Prüfung fortsetzen ▶</button><button class="btn ghost" id="dropExam">Verwerfen und neu starten</button></div>` : ""}
+      <div class="card"><h2>📝 Wie in der IHK-Prüfung</h2>
+      <ul><li><b>${examSize()} Fragen</b> aus allen 9 Sachgebieten, verteilt wie in der Prüfung</li>
       <li><b>120 Minuten</b> Zeit</li><li>Eine oder mehrere Antworten können richtig sein. Wie bei der IHK seit 1. Juli 2025 gibt es <b>Teilpunkte</b>: einen Punkt für jede richtig angekreuzte Antwort.</li>
       <li>Wie falsche Kreuze zählen, hat die IHK nicht veröffentlicht. Die App zieht vorsichtshalber für jedes falsche Kreuz einen Punkt dieser Frage ab. Kreuze also nur an, was du sicher weißt.</li>
       <li>Bestanden ab <b>50 % der Punkte</b> (IHK: 60 von 120 Punkten)</li><li>Die Lösungen siehst du erst am Ende.</li></ul>
       <table><tr><th>Sachgebiet</th><th class="n">Fragen</th></tr>${TOPICS.map(t => `<tr><td>${t.icon} ${esc(t.name)}</td><td class="n">${Math.min(t.examCount, questionsOf(t.id).length)}</td></tr>`).join("")}</table>${onlyOwn() ? `<p class="muted">Die Prüfung nutzt nur deine eigenen Fragen.${TOPICS.some(t => questionsOf(t.id).length < t.examCount) ? " In manchen Sachgebieten hast du weniger Fragen als in der echten Prüfung, deshalb ist sie kürzer." : ""}</p>` : ""}</div>
       ${hist.length ? `<div class="card"><h3>Deine letzten Prüfungen</h3><table>${hist.map(h => `<tr><td>${new Date(h.d).toLocaleDateString("de-DE")} ${new Date(h.d).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</td><td class="n">${h.pts != null ? h.pts + "/" + h.max + " P." : h.right + "/" + h.total}</td><td class="n ${h.pass ? "pass" : "fail"}"><b>${h.pct}%</b></td></tr>`).join("")}</table></div>` : ""}`;
-    foot(`<button class="btn" id="startExam">Prüfung starten</button>`);
-    $("#startExam").onclick = startExam;
+    if (run) {
+      foot("");
+      $("#dropExam").onclick = () => { if (confirm("Laufende Prüfung verwerfen?")) { exam = null; saveExam(); examIntro(); } };
+    } else {
+      foot(`<button class="btn" id="startExam">Prüfung starten</button>`);
+      $("#startExam").onclick = startExam;
+    }
   }
   function startExam() {
     let list = [];
     TOPICS.forEach(t => { list = list.concat(shuffle(questionsOf(t.id)).slice(0, t.examCount)); }); // eingebaute und eigene/importierte Fragen
     exam = { list, order: list.map(prepOrder), ans: list.map(() => []), flag: {}, i: 0, end: Date.now() + EXAM_MIN * 60000, done: false };
-    go("#/pruefung/laeuft");
+    saveExam();
+    if (location.hash === "#/pruefung/laeuft") router(true); else go("#/pruefung/laeuft");
   }
   function examRender() {
     if (!exam) return go("#/pruefung");
     if (exam.done) return examResult();
     const e = exam, q = e.list[e.i];
-    setHeader("Prüfung", () => { if (confirm("Prüfung abbrechen? Der Fortschritt dieser Prüfung geht verloren.")) { exam = null; clearTimer(); go("#/pruefung"); } });
+    setHeader("Prüfung", () => { clearTimer(); go("#/pruefung"); }); // Prüfung läuft weiter und kann fortgesetzt werden
     let html = `<div class="qhead"><span>Frage ${e.i + 1} / ${e.list.length} · <span class="pill">${topicById(q.topic).short}</span></span><span class="timer" id="timer"></span></div>
       <div class="card"><div class="qtext">${esc(q.q)}</div><div class="hint">${S.settings.showCount ? `<span class="count">👉 ${countText(q)}</span> · ${e.ans[e.i].length} gewählt` : "Eine oder mehrere Antworten sind richtig."}</div>`;
     e.order[e.i].forEach((ai, k) => {
@@ -299,24 +393,24 @@
     $("#app").innerHTML = html;
     document.querySelectorAll(".ans").forEach(b => b.onclick = () => {
       const a = +b.dataset.a, arr = e.ans[e.i], i = arr.indexOf(a);
-      if (i >= 0) arr.splice(i, 1); else arr.push(a); examRender();
+      if (i >= 0) arr.splice(i, 1); else arr.push(a); SFX.tap(); saveExam(); examRender();
     });
-    document.querySelectorAll(".navgrid button").forEach(b => b.onclick = () => { e.i = +b.dataset.n; examRender(); window.scrollTo(0, 0); });
-    $("#eflag").onclick = () => { e.flag[e.i] = !e.flag[e.i]; examRender(); };
+    document.querySelectorAll(".navgrid button").forEach(b => b.onclick = () => { e.i = +b.dataset.n; saveExam(); examRender(); window.scrollTo(0, 0); });
+    $("#eflag").onclick = () => { e.flag[e.i] = !e.flag[e.i]; saveExam(); examRender(); };
     $("#submit").onclick = () => {
       const open = e.ans.filter(a => !a.length).length;
       if (confirm(open ? `Noch ${open} Fragen unbeantwortet. Trotzdem abgeben?` : "Prüfung jetzt abgeben?")) finishExam();
     };
     foot(`<button class="btn sec" id="prev" ${e.i ? "" : "disabled"}>◀ Zurück</button><button class="btn" id="nextq">${e.i + 1 < e.list.length ? "Weiter ▶" : "Zur Abgabe"}</button>`);
-    $("#prev").onclick = () => { e.i--; examRender(); window.scrollTo(0, 0); };
-    $("#nextq").onclick = () => { if (e.i + 1 < e.list.length) { e.i++; examRender(); window.scrollTo(0, 0); } else $("#submit").scrollIntoView({ behavior: "smooth" }); };
+    $("#prev").onclick = () => { e.i--; saveExam(); examRender(); window.scrollTo(0, 0); };
+    $("#nextq").onclick = () => { if (e.i + 1 < e.list.length) { e.i++; saveExam(); examRender(); window.scrollTo(0, 0); } else $("#submit").scrollIntoView({ behavior: "smooth" }); };
     tick(); clearTimer(); timerHandle = setInterval(tick, 1000);
   }
   function tick() {
     if (!exam) return clearTimer();
     const left = Math.max(0, exam.end - Date.now()), m = Math.floor(left / 60000), s = Math.floor(left / 1000) % 60;
     const el = $("#timer"); if (el) { el.textContent = "⏱ " + m + ":" + String(s).padStart(2, "0"); el.style.color = left < 600000 ? "var(--red)" : ""; }
-    if (left <= 0) { clearTimer(); alert("Die Zeit ist abgelaufen. Die Prüfung wird ausgewertet."); finishExam(); }
+    if (left <= 0) { clearTimer(); if (!exam.done) { toast("Die Zeit ist abgelaufen. Die Prüfung wird ausgewertet."); finishExam(); } }
   }
   function finishExam() {
     clearTimer();
@@ -326,8 +420,8 @@
     e.max = e.list.reduce((n, q) => n + q.c.length, 0);
     e.list.forEach((q, i) => record(q, e.res[i]));
     const right = e.res.filter(Boolean).length, got = e.pts.reduce((a, b) => a + b, 0), pct = Math.round(got / e.max * 100);
-    S.exams.push({ d: Date.now(), right, total: e.list.length, pts: got, max: e.max, pct, pass: got * 2 >= e.max }); save();
-    go("#/pruefung/ergebnis");
+    S.exams.push({ d: Date.now(), right, total: e.list.length, pts: got, max: e.max, pct, pass: got * 2 >= e.max }); save(); saveExam();
+    if (location.hash === "#/pruefung/ergebnis") router(true); else go("#/pruefung/ergebnis");
   }
   function examResult() {
     if (!exam || !exam.done) return go("#/pruefung");
@@ -337,14 +431,15 @@
     const per = TOPICS.map(t => { const idx = e.list.map((q, i) => i).filter(i => e.list[i].topic === t.id); return { t, r: idx.reduce((n, i) => n + e.pts[i], 0), n: idx.reduce((n, i) => n + e.list[i].c.length, 0) }; }).filter(x => x.n);
     $("#app").innerHTML = `<div class="card" style="text-align:center;padding:24px 16px"><div class="result ${pass ? "pass" : "fail"}"><span id="epct" data-to="${pct}">0</span> %</div>
       <div class="stamp ${pass ? "pass" : "fail"}">${pass ? "Bestanden" : "Nicht bestanden"}</div><p style="margin:16px 0 2px"><b>${got} von ${e.max} Punkten</b> · bestanden ab ${Math.ceil(e.max / 2)}</p><p class="muted" style="margin:0">${right} von ${e.list.length} Fragen vollständig richtig</p></div>
-      <div class="card"><h3>Nach Sachgebiet (Punkte)</h3><table>${per.map(x => `<tr><td>${x.t.icon} ${esc(x.t.short)}</td><td class="n">${x.r}/${x.n}</td><td class="n ${x.r / x.n >= .5 ? "pass" : "fail"}">${Math.round(x.r / x.n * 100)}%</td></tr>`).join("")}</table></div>
+      <div class="card"><h3 style="margin-top:0">Nach Sachgebiet</h3>${per.map(x => { const q = Math.round(x.r / x.n * 100); return `<div class="perrow"><span>${x.t.icon} ${esc(x.t.short)}</span><span class="pbar"><i class="${q >= 50 ? "g" : "r"}" style="width:${q}%"></i></span><span class="n">${x.r}/${x.n}</span></div>`; }).join("")}
+      <p class="muted" style="margin-bottom:0">Rot = unter 50 %. Diese Sachgebiete solltest du noch üben.</p></div>
       <div class="card"><h3>Fragen ansehen</h3><div class="muted" style="margin-bottom:8px">Grün = vollständig richtig, Rot = nicht vollständig richtig. Tippe auf eine Nummer.</div>
       <div class="navgrid">${e.list.map((_, i) => `<button data-n="${i}" class="${e.res[i] ? "ok" : "no"}">${i + 1}</button>`).join("")}</div></div>
       <div id="review"></div>`;
     document.querySelectorAll(".navgrid button").forEach(b => b.onclick = () => showReview(+b.dataset.n));
     foot(`<button class="btn sec" data-go="#/lernen/fehler">Fehler üben</button><button class="btn" id="newExam">Neue Prüfung</button>`);
     $("#newExam").onclick = startExam;
-    if (!exam.shown) { exam.shown = true; countUp($("#epct"), 900); if (pass) setTimeout(() => confetti(120), 1100); }
+    if (!exam.shown) { exam.shown = true; saveExam(); countUp($("#epct"), 900); setTimeout(() => pass ? SFX.pass() : SFX.fail(), 900); if (pass) setTimeout(() => confetti(120), 1100); }
     else $("#epct").textContent = pct;
   }
   function showReview(i) {
@@ -772,9 +867,10 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
   }
   const lawRef = t => { const m = t.match(/§\s*\d+\s*[a-z]?(\s*Abs\.\s*\d+)?\s*(StGB|StPO|BGB|GewO|BewachV|WaffG|DSGVO|BDSG|GG)/); return m ? m[0].replace(/\s+/g, " ") : ""; };
 
+  const ownView = { q: "", t: "", n: 30 };
   function customPage() {
     clearTimer();
-    setHeader("Eigene Fragen", "#/");
+    setHeader("Eigene Fragen", null);
     let h = `<div class="card"><h2>📥 Fragen importieren</h2>
       <p class="muted">Füge eine Liste ein: „1. Frage“, darunter „A) Antwort“, richtige Antworten mit ✅ markiert. Die Fragen bleiben nur auf diesem Gerät, kommen ins Backup und werden nicht veröffentlicht.</p>
       <label class="btn sec" style="cursor:pointer">📄 PDF- oder Textdatei wählen<input type="file" id="impfile" accept=".pdf,.txt,application/pdf,text/plain" style="display:none"></label>
@@ -782,23 +878,40 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       <textarea id="imptxt" placeholder="… oder Text hier einfügen:&#10;1. Frage&#10;A) Antwort&#10;B) ✅ richtige Antwort" style="min-height:120px"></textarea>
       <label>Sachgebiet</label><select id="imptopic"><option value="auto">Automatisch zuordnen</option>${TOPICS.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select>
       <button class="btn sec" id="impcheck">Prüfen</button><div id="impprev"></div></div>
-      <div class="card"><h2>✏️ Neue Frage anlegen</h2>
+      <details class="card fold"${S.custom.length ? "" : " open"}><summary><h2>✏️ Neue Frage anlegen</h2></summary>
       <label>Sachgebiet</label><select id="ct">${TOPICS.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("")}</select>
       <label>Frage</label><textarea id="cq" placeholder="Frage eingeben"></textarea>
       <label>Antworten (richtige ankreuzen)</label>
       ${[0, 1, 2, 3, 4].map(i => `<div class="ansedit"><input type="checkbox" id="cc${i}" aria-label="Antwort ${i + 1} ist richtig"><input type="text" id="ca${i}" placeholder="Antwort ${String.fromCharCode(65 + i)}${i > 1 ? " (optional)" : ""}"></div>`).join("")}
       <label style="margin-top:8px;display:block">Erklärung (optional)</label><textarea id="ce" placeholder="Warum ist das richtig?"></textarea>
       <label>Paragraph (optional)</label><input id="cp" placeholder="z. B. § 32 StGB">
-      <button class="btn" id="csave">Frage speichern</button></div>`;
+      <button class="btn" id="csave">Frage speichern</button></details>`;
     if (S.custom.length) {
-      h += `<div class="card"><h3>Deine Fragen (${S.custom.length})</h3>${S.custom.some(c => c.imp) ? `<button class="btn ghost" id="impdel">🗑 Alle importierten Fragen löschen</button>` : ""}`;
-      S.custom.slice().reverse().forEach(c => {
-        h += `<div style="border-bottom:1px solid var(--line);padding:8px 0"><span class="pill">${topicById(c.topic).short}</span><b>${esc(c.q)}</b>
-          <div class="muted">✓ ${c.c.map(i => esc(c.a[i])).join(" · ")}</div><button class="flagbtn" data-del="${c.id}" style="margin-top:4px">🗑 Löschen</button></div>`;
-      });
-      h += `</div>`;
+      h += `<div class="card"><h2>📋 Deine Fragen (${S.custom.length})</h2>
+        <input type="search" id="osearch" placeholder="Fragen durchsuchen …" value="${esc(ownView.q)}">
+        <select id="otopic"><option value="">Alle Sachgebiete</option>${TOPICS.map(t => `<option value="${t.id}" ${ownView.t === t.id ? "selected" : ""}>${esc(t.name)} (${S.custom.filter(c => c.topic === t.id).length})</option>`).join("")}</select>
+        <div id="olist"></div>
+        ${S.custom.some(c => c.imp) ? `<button class="btn ghost" id="impdel" style="margin-top:14px">🗑 Alle importierten Fragen löschen</button>` : ""}</div>`;
     }
     $("#app").innerHTML = h; foot("");
+    const renderOwn = () => {
+      const box = $("#olist"); if (!box) return;
+      const q = ownView.q.trim().toLowerCase();
+      const hits = S.custom.slice().reverse().filter(c => (!ownView.t || c.topic === ownView.t) && (!q || (c.q + " " + c.a.join(" ")).toLowerCase().includes(q)));
+      const show = hits.slice(0, ownView.n);
+      box.innerHTML = `<p class="muted">${hits.length} ${hits.length === 1 ? "Frage" : "Fragen"}${hits.length > show.length ? `, ${show.length} angezeigt` : ""}</p>` + show.map(c => `<div class="ownq"><span class="pill">${esc(topicById(c.topic).short)}</span>${c.imp ? '<span class="pill">importiert</span>' : ""}<b>${esc(c.q)}</b>
+          <div class="muted">✓ ${c.c.map(i => esc(c.a[i])).join(" · ")}</div><button class="flagbtn" data-del="${c.id}">🗑 Löschen</button></div>`).join("")
+        + (hits.length > show.length ? `<button class="btn sec" id="omore">Weitere ${Math.min(30, hits.length - show.length)} anzeigen</button>` : "");
+      const more = $("#omore"); if (more) more.onclick = () => { ownView.n += 30; renderOwn(); };
+      box.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
+        if (!confirm("Diese Frage löschen?")) return;
+        S.custom = S.custom.filter(c => c.id !== b.dataset.del); delete S.prog[b.dataset.del]; delete S.flags[b.dataset.del]; save();
+        b.closest(".ownq").remove(); toast("Frage gelöscht");
+      });
+    };
+    renderOwn();
+    const os = $("#osearch"); if (os) { let tmr; os.oninput = () => { clearTimeout(tmr); tmr = setTimeout(() => { ownView.q = os.value; ownView.n = 30; renderOwn(); }, 200); }; }
+    const ot = $("#otopic"); if (ot) ot.onchange = () => { ownView.t = ot.value; ownView.n = 30; renderOwn(); };
     let parsed = [];
     $("#impfile").onchange = async ev => {
       const f = ev.target.files[0]; if (!f) return;
@@ -849,17 +962,17 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       if (!confirm(ids.length + " importierte Fragen löschen?")) return;
       S.custom = S.custom.filter(c => !c.imp); ids.forEach(id => { delete S.prog[id]; delete S.flags[id]; }); save(); customPage();
     };
-    document.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
-      if (!confirm("Diese Frage löschen?")) return;
-      S.custom = S.custom.filter(c => c.id !== b.dataset.del); delete S.prog[b.dataset.del]; delete S.flags[b.dataset.del]; save(); customPage();
-    });
   }
 
   // ---------- Einstellungen ----------
   function settingsPage() {
-    setHeader("Einstellungen", "#/");
+    setHeader("Einstellungen", null);
     const conf = aiConf();
-    $("#app").innerHTML = `<div class="card"><h2>🔢 Anzeige</h2>
+    $("#app").innerHTML = `<div class="card"><h2>🎯 Lernen</h2>
+      <label>Tagesziel</label><select id="goal">${[10, 20, 30, 50, 80].map(n => `<option value="${n}" ${(S.settings.goal || 20) === n ? "selected" : ""}>${n} Fragen pro Tag</option>`).join("")}</select>
+      <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="sound" style="width:22px;height:22px;margin:0" ${S.settings.sound !== false ? "checked" : ""}> Töne bei richtigen und falschen Antworten</label>
+      <p class="muted">Die Töne sind leise und laufen über die Medienlautstärke deines Handys.</p></div>
+      <div class="card"><h2>🔢 Anzeige</h2>
       <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="showc" style="width:22px;height:22px;margin:0" ${S.settings.showCount ? "checked" : ""}> Anzahl der richtigen Antworten bei jeder Frage anzeigen</label>
       <p class="muted">In der echten IHK-Prüfung wird das nicht angezeigt. Schalte es zum Üben ein und für eine realistische Prüfung aus.</p></div>
       <div class="card"><h2>📚 Fragen</h2>
@@ -871,13 +984,16 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       ${conf.key ? `<p>✅ Eingerichtet · Google Gemini · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><button class="btn sec" id="aitest">🔍 KI testen</button><div id="ailog" class="muted" style="font-size:13px;word-break:break-word"></div><button class="btn ghost" id="aicopylog" style="display:none">📋 Testergebnis kopieren</button><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
         : `<input type="password" id="aikey" placeholder="Gemini-Schlüssel (AQ.…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
       <div class="card"><h2>💾 Backup</h2><p class="muted">Dein Fortschritt wird nur auf diesem Gerät gespeichert. Mit einem Backup kannst du ihn sichern oder auf ein anderes Gerät übertragen.</p>
-      <button class="btn sec" id="exp">Backup herunterladen</button>
+      <button class="btn sec" id="exp">Backup sichern</button>
       <label class="btn sec" style="display:block">Backup laden<input type="file" id="imp" accept="application/json,.json" style="display:none"></label></div>
       <div class="card"><h2>📲 Als App installieren</h2><p class="muted"><b>iPhone (Safari):</b> Teilen-Symbol → „Zum Home-Bildschirm“.<br><b>Android (Chrome):</b> Menü ⋮ → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“.<br>Danach funktioniert die App auch offline.</p></div>
       <div class="card"><h2>🗑 Zurücksetzen</h2><button class="btn danger" id="reset">Lernfortschritt löschen</button><p class="muted">Eigene Fragen bleiben erhalten.</p></div>
+      <button class="btn ghost" data-go="#/neu">🆕 Was ist neu?</button>
       <div class="card"><p class="muted">Security LernApp · <a href="#/neu">Version ${esc(VERSION)}</a> · ${allQuestions().length} Fragen. Die Fragen sind selbst formuliert auf Grundlage der Gesetze (GG, GewO, BewachV, DSGVO, BDSG, BGB, StGB, StPO, WaffG, DGUV). Ohne Gewähr: Im Zweifel gilt der aktuelle Gesetzestext.</p></div>`;
     foot("");
     $("#showc").onchange = ev => { S.settings.showCount = ev.target.checked; save(); toast("Gespeichert"); };
+    $("#sound").onchange = ev => { S.settings.sound = ev.target.checked; save(); if (ev.target.checked) SFX.ok(); toast(ev.target.checked ? "Töne an" : "Töne aus"); };
+    $("#goal").onchange = ev => { S.settings.goal = +ev.target.value; save(); toast("Tagesziel: " + ev.target.value + " Fragen"); };
     $("#onlyown").onchange = ev => { S.settings.onlyOwn = ev.target.checked; save(); toast(ev.target.checked ? "Nur noch deine eigenen Fragen" : "Alle Fragen aktiv"); };
     const del = $("#aidel"); if (del) del.onclick = () => { aiSave({}); settingsPage(); toast("Schlüssel entfernt"); };
     const logTo = el => line => { el.innerHTML += esc(line) + "<br>"; };
@@ -910,13 +1026,18 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       const cl = $("#aicopylog"); cl.style.display = "block";
       cl.onclick = () => navigator.clipboard.writeText("Security LernApp " + VERSION + "\n" + box.innerText).then(() => toast("Kopiert ✅")).catch(() => toast("Kopieren nicht möglich"));
     };
-    $("#exp").onclick = () => {
-      const blob = new Blob([JSON.stringify(S)], { type: "application/json" });
-      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "security-lernapp-backup.json"; a.click();
+    $("#exp").onclick = async () => {
+      const name = "security-lernapp-backup-" + dayKey() + ".json", json = JSON.stringify(S);
+      // Auf dem iPhone klappt Teilen (z. B. „In Dateien sichern“) zuverlässiger als Herunterladen
+      try {
+        const file = new File([json], name, { type: "application/json" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: "Security LernApp Backup" }); return; }
+      } catch (err) { if (err && err.name === "AbortError") return; }
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([json], { type: "application/json" })); a.download = name; document.body.appendChild(a); a.click(); a.remove();
     };
     $("#imp").onchange = ev => {
       const f = ev.target.files[0]; if (!f) return;
-      const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); if (!d.prog) throw 0; S = Object.assign({}, defaults, d); S.settings = Object.assign({ showCount: true }, S.settings || {}); save(); toast("Backup geladen ✅"); go("#/"); } catch (e) { toast("Ungültige Backup-Datei"); } };
+      const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); if (!d.prog) throw 0; S = Object.assign({}, defaults, d); S.settings = Object.assign({ showCount: true, sound: true, goal: 20 }, S.settings || {}); S.days = S.days || {}; save(); toast("Backup geladen ✅"); go("#/"); } catch (e) { toast("Ungültige Backup-Datei"); } };
       r.readAsText(f);
     };
     $("#reset").onclick = () => { if (confirm("Wirklich den gesamten Lernfortschritt löschen?")) { S.prog = {}; S.exams = []; S.flags = {}; save(); toast("Fortschritt gelöscht"); go("#/"); } };
@@ -925,7 +1046,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
   // ---------- Was ist neu ----------
   function updatesPage() {
     clearTimer();
-    setHeader("Was ist neu", "#/");
+    setHeader("Was ist neu", "#/einstellungen");
     let h = `<div class="card"><p class="muted" style="margin:0">Du nutzt <b>Version ${esc(VERSION)}</b>. Steht hier eine ältere Nummer als erwartet, schließe die App einmal ganz und öffne sie neu.</p></div>`;
     UPDATES.forEach((u, i) => {
       h += `<div class="card"><h3 style="margin-top:0">Version ${esc(u.v)} <span class="muted" style="font-weight:400">· ${fmtDate(u.d)}</span>${i === 0 ? ' <span class="pill">aktuell</span>' : ""}</h3>
@@ -939,7 +1060,10 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     const h = location.hash || "#/";
     const parts = h.slice(2).split("/");
     window.scrollTo(0, 0);
-    if (parts[0] === "thema") topicPage(parts[1]);
+    const tab = { "": "start", themen: "lernen", thema: "lernen", kapitel: "lernen", lernen: "lernen", markiert: "lernen", pruefung: "pruefung", eigene: "fragen", einstellungen: "mehr", neu: "mehr" }[parts[0]] || "start";
+    document.querySelectorAll("#tabs a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab));
+    if (parts[0] === "themen") topicsPage();
+    else if (parts[0] === "thema") topicPage(parts[1]);
     else if (parts[0] === "kapitel") lessonPage(parts[1]);
     else if (parts[0] === "lernen") { clearTimer(); startLearn(parts[1]); }
     else if (parts[0] === "markiert") { clearTimer(); startLearn("markiert"); }
@@ -957,7 +1081,14 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
   });
   window.addEventListener("hashchange", () => { if (ai) closeAI(); router(); });
   initAIPanel();
-  window.addEventListener("beforeunload", ev => { if (exam && !exam.done) { ev.preventDefault(); ev.returnValue = ""; } });
+  // Tastatur (Computer): 1–6 wählt Antworten, Enter prüft bzw. geht weiter, Pfeile blättern in der Prüfung
+  document.addEventListener("keydown", ev => {
+    if (ai || /INPUT|TEXTAREA|SELECT/.test((ev.target.tagName || ""))) return;
+    const h = location.hash;
+    if (/^[1-6]$/.test(ev.key)) { const b = document.querySelectorAll("#app .ans:not([disabled])")[+ev.key - 1]; if (b && (h.startsWith("#/lernen") || h.startsWith("#/markiert") || h === "#/pruefung/laeuft")) { b.click(); ev.preventDefault(); } }
+    else if (ev.key === "Enter") { const b = $("#check:not([disabled])") || $("#next"); if (b) { b.click(); ev.preventDefault(); } }
+    else if (h === "#/pruefung/laeuft" && (ev.key === "ArrowRight" || ev.key === "ArrowLeft")) { const b = $(ev.key === "ArrowRight" ? "#nextq" : "#prev:not([disabled])"); if (b) b.click(); }
+  });
   router();
 
   let swReg = null;
@@ -981,12 +1112,12 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
   }
   function showUpdate(v) {
     // Auf der Startseite ohne laufende Prüfung sofort aktualisieren, sonst Hinweis anzeigen
-    const idle = (location.hash || "#/") === "#/" && !exam && !ai;
+    const idle = (location.hash || "#/") === "#/" && !(exam && !exam.done) && !ai;
     if (idle) return applyUpdate();
     let b = $("#upd");
     if (!b) { b = document.createElement("div"); b.id = "upd"; b.className = "updbar"; document.body.appendChild(b); }
     b.innerHTML = `<span>🔄 Version ${esc(v)} ist da</span><button id="updgo">Jetzt aktualisieren</button>`;
-    $("#updgo").onclick = () => { if (exam && !exam.done && !confirm("Die laufende Prüfung geht dabei verloren. Trotzdem aktualisieren?")) return; exam = null; applyUpdate(); };
+    $("#updgo").onclick = () => { saveExam(); applyUpdate(); }; // laufende Prüfung ist gespeichert und läuft nach dem Update weiter
   }
   async function applyUpdate() {
     toast("Update wird geladen …");
