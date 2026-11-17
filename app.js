@@ -215,16 +215,20 @@
     clearTimer();
     const t = topicById(tid); if (!t) return go("#/");
     setHeader(t.short, "#/themen");
-    const list = questionsOf(tid), c = counts(list);
-    $("#app").innerHTML = `<div class="card"><div class="topic"><div class="ico">${t.icon}</div><div class="info"><h2 style="margin:0">${esc(t.name)}</h2>
-      <div class="muted">${list.length} Fragen · ${t.examCount} davon kommen in der Prüfung</div></div></div>${bar(c)}
-      <div class="legend"><span>${c.gruen} sicher</span><span>${c.gelb} 1× richtig</span><span>${c.rot} falsch</span><span>${c.neu} neu</span></div></div>
-      <button class="btn sec" data-go="#/kapitel/${tid}">📖 Lernkapitel lesen</button>
-      <button class="btn" data-go="#/lernen/t-${tid}">▶ Üben (Wichtigste zuerst)</button>
-      <button class="btn sec" data-go="#/lernen/f-${tid}">🔁 Nur Fehler (${c.rot})</button>
-      <button class="btn sec" data-go="#/lernen/a-${tid}">📋 Alle Fragen der Reihe nach</button>
-      <button class="btn sec" data-go="#/lernen/q-${tid}">⚡ Schnelltest (10 Zufallsfragen)</button>`;
+    const list = questionsOf(tid), c = counts(list), p = c.total ? Math.round((c.gruen + c.gelb / 2) / c.total * 100) : 0;
+    const row = (go, ico, title, sub, cls) => `<button class="mode ${cls || ""}" data-go="${go}"><span class="mi">${ico}</span><span class="mt"><b>${title}</b><span>${sub}</span></span><span class="chev">›</span></button>`;
+    $("#app").innerHTML = `<div class="badge thero"><div class="top"><div class="title">${t.icon} ${esc(t.short)}<b>${esc(t.name)}</b></div><div class="pct">${p}<small>%</small></div></div>
+      <div class="stats"><div class="st-g"><b>${c.gruen}</b>sicher</div><div class="st-y"><b>${c.gelb}</b>1× richtig</div><div class="st-r"><b>${c.rot}</b>falsch</div><div><b>${c.neu}</b>neu</div></div>
+      <div class="tbar">${bar(c)}</div><div class="last">${list.length} Fragen · ${t.examCount} davon kommen in der Prüfung</div></div>
+      ${row(`#/lernen/t-${tid}`, "▶", "Üben", "Fehler und neue Fragen zuerst · 20 Fragen", "primary")}
+      <div class="card modes">
+        ${row(`#/kapitel/${tid}`, "📖", "Lernkapitel lesen", "Das Wichtigste kurz erklärt")}
+        ${row(`#/lernen/f-${tid}`, "🔁", "Nur Fehler", c.rot ? c.rot + (c.rot === 1 ? " Frage" : " Fragen") + " zuletzt falsch" : "Gerade keine Fehler 🎉", c.rot ? "" : "dim")}
+        ${row(`#/lernen/q-${tid}`, "⚡", "Schnelltest", "10 Zufallsfragen")}
+        ${row(`#/lernen/a-${tid}`, "📋", "Alle Fragen der Reihe nach", list.length + " Fragen")}
+      </div>`;
     foot("");
+    requestAnimationFrame(() => document.querySelectorAll(".thero .bar span").forEach(x => x.classList.add("grow")));
   }
 
   function lessonPage(tid) {
@@ -262,7 +266,7 @@
       $("#app").innerHTML = `<div class="card"><h2>Nichts zu tun 🎉</h2><p>Hier gibt es gerade keine Fragen. Wähle einen anderen Lernmodus.</p></div>`;
       foot(`<button class="btn" data-go="${back}">Zurück</button>`); return;
     }
-    session = { list, i: 0, sel: [], checked: false, right: 0, title, back, order: null, combo: 0, best: 0 };
+    session = { list, i: 0, sel: [], checked: false, right: 0, title, back, order: null, combo: 0, best: 0, hist: [] };
     renderQ();
   }
   function prepOrder(q) { return shuffle(q.a.map((_, i) => i)); }
@@ -271,10 +275,14 @@
     if (!s.order) s.order = prepOrder(q);
     setHeader(s.title, s.back);
     const t = topicById(q.topic);
-    let html = `<div class="progress"><div style="width:${(s.i + (s.checked ? 1 : 0)) / s.list.length * 100}%"></div></div>
-      <div class="qhead"><span>Frage ${s.i + 1} von ${s.list.length} · <span class="pill">${t ? t.short : ""}</span>${q.own ? '<span class="pill">eigene</span>' : ""}${s.combo >= 2 ? `<span class="combo${s.just ? " pop" : ""}">🔥 ${s.combo}</span>` : ""}</span>
+    // Fortschritt: bei kurzen Runden ein Feld pro Frage (grün/rot), sonst ein Balken
+    const seg = s.list.length <= 30
+      ? `<div class="seg">${s.list.map((_, k) => `<i class="${k < s.hist.length ? (s.hist[k] ? "ok" : "bad") : k === s.i ? "cur" : ""}"></i>`).join("")}</div>`
+      : `<div class="progress"><div style="width:${s.hist.length / s.list.length * 100}%"></div></div>`;
+    let html = `${seg}
+      <div class="qhead"><span><span class="qn">Frage <b>${s.i + 1}</b>/${s.list.length}</span><span class="pill">${t ? t.short : ""}</span>${q.own ? '<span class="pill">eigene</span>' : ""}</span>
       <span><button class="flagbtn" id="aiq">🤖 KI-Hilfe</button> <button class="flagbtn ${S.flags[q.id] ? "on" : ""}" id="flag">⭐ ${S.flags[q.id] ? "markiert" : "merken"}</button></span></div>
-      <div class="card"><div class="qtext">${esc(q.q)}</div><div class="hint">${S.settings.showCount ? `<span class="count">👉 ${countText(q)}</span> · ${s.sel.length} gewählt` : "Wähle alle richtigen Antworten aus (eine oder mehrere)."}</div>`;
+      <div class="card qcard">${s.combo >= 2 ? `<span class="combo${s.just ? " pop" : ""}">🔥 ${s.combo}</span>` : ""}<div class="qtext">${esc(q.q)}</div><div class="hint">${S.settings.showCount ? `<span class="count">👉 ${countText(q)}</span> · ${s.sel.length} gewählt` : "Wähle alle richtigen Antworten aus (eine oder mehrere)."}</div>`;
     const just = s.just; s.just = false;
     s.order.forEach((ai, k) => {
       let cls = s.sel.includes(ai) ? "sel" : "";
@@ -282,14 +290,15 @@
         const good = q.c.includes(ai);
         if (good && s.sel.includes(ai)) cls = "ok sel"; else if (good) cls = "ok miss"; else if (s.sel.includes(ai)) cls = "bad";
       }
-      const mark = s.checked ? (q.c.includes(ai) ? "✓" : (s.sel.includes(ai) ? "✗" : "")) : (s.sel.includes(ai) ? "✓" : "");
+      const L = String.fromCharCode(65 + k);
+      const mark = s.checked ? (q.c.includes(ai) ? "✓" : (s.sel.includes(ai) ? "✗" : L)) : (s.sel.includes(ai) ? "✓" : L);
       if (just && (s.sel.includes(ai) || q.c.includes(ai))) cls += " just";
-      html += `<button class="ans ${cls}" data-a="${ai}" ${s.checked ? "disabled" : ""}><span class="box">${mark}</span><span>${String.fromCharCode(65 + k)}) ${esc(q.a[ai])}</span></button>`;
+      html += `<button class="ans ${cls}" data-a="${ai}" ${s.checked ? "disabled" : ""} style="--k:${k}" aria-label="Antwort ${L}"><span class="box">${mark}</span><span>${esc(q.a[ai])}</span></button>`;
     });
     if (s.checked) {
       const ok = isRight(q, s.sel);
       const praise = ["Richtig!", "Stark!", "Genau!", "Sitzt!", "Sauber!"][s.i % 5];
-      html += `<div class="expl ${ok ? "ok" : "bad"}"><b>${ok ? "✅ " + praise + (s.combo >= 3 ? ` ${s.combo} in Folge 🔥` : "") : "❌ Leider falsch."}</b> ${esc(q.e || "")}${q.p ? `<br><span class="para">📌 ${esc(q.p)}</span>` : ""}</div>`;
+      html += `<div class="expl ${ok ? "ok" : "bad"}"><div class="vhead"><span class="vico">${ok ? "✓" : "✗"}</span><b>${ok ? praise : "Leider falsch"}</b>${ok && s.combo >= 3 ? `<span class="vsub">${s.combo} in Folge 🔥</span>` : !ok ? `<span class="vsub">Richtig ist ${q.c.length === 1 ? "die grün markierte Antwort" : "grün markiert"}</span>` : ""}</div>${q.e ? `<p>${esc(q.e)}</p>` : ""}${q.p ? `<span class="para">📌 ${esc(q.p)}</span>` : ""}</div>`;
     }
     html += `</div>`;
     $("#app").innerHTML = html;
@@ -304,6 +313,7 @@
     else foot(`<button class="btn" id="next">${s.i + 1 < s.list.length ? "Nächste Frage ▶" : "Auswertung ▶"}</button>`);
     const ch = $("#check"); if (ch) ch.onclick = () => {
       s.checked = true; s.just = true; const ok = isRight(q, s.sel);
+      s.hist.push(ok);
       if (ok) { s.right++; s.combo++; s.best = Math.max(s.best, s.combo); SFX.ok(); if (s.combo >= 3) SFX.combo(s.combo); } else { s.combo = 0; SFX.bad(); }
       record(q, ok); renderQ();
       const ex = $(".expl"); if (ex && ex.getBoundingClientRect().bottom > innerHeight - 90) ex.scrollIntoView({ behavior: calm() ? "auto" : "smooth", block: "center" });
@@ -315,14 +325,19 @@
   // Wie falsche Kreuze gewertet werden, hat die IHK nicht veröffentlicht. Annahme der App: jedes falsche Kreuz hebt einen Punkt auf (nie unter 0).
   function points(q, sel) { const good = sel.filter(a => q.c.includes(a)).length, bad = sel.length - good; return Math.max(0, good - bad); }
   function learnDone() {
-    const s = session, pct = Math.round(s.right / s.list.length * 100);
-    $("#app").innerHTML = `<div class="card" style="text-align:center"><h2>Runde geschafft!</h2>
-      <div class="result ${pct >= 50 ? "pass" : "fail"}"><span id="rnum" data-to="${s.right}">0</span> / ${s.list.length}</div><p class="muted">${pct} % richtig</p>
-      <p>${pct >= 80 ? "Stark! Weiter so 💪" : pct >= 50 ? "Gut! Die falschen Fragen kommen bald wieder." : "Dranbleiben! Lies ggf. das Lernkapitel noch einmal."}</p>
-      ${s.best >= 3 ? `<p class="muted">Beste Serie: 🔥 ${s.best} richtig in Folge</p>` : ""}
-      <p class="muted">Heute: ${today()} ${today() === 1 ? "Frage" : "Fragen"}${today() >= (S.settings.goal || 20) ? " · Tagesziel geschafft ✅" : " · Ziel " + (S.settings.goal || 20)}</p></div>`;
+    const s = session, n = s.list.length, pct = Math.round(s.right / n * 100), R = 52, C = 2 * Math.PI * R;
+    const goal = S.settings.goal || 20;
+    const head = pct === 100 ? "Fehlerfrei! 🏆" : pct >= 80 ? "Stark, weiter so!" : pct >= 50 ? "Gut gemacht!" : "Dranbleiben!";
+    const sub = pct >= 80 ? "Du bist auf einem sehr guten Weg zur Prüfung." : pct >= 50 ? "Die falschen Fragen kommen bald wieder dran." : "Lies das Lernkapitel noch einmal und übe die Fehler.";
+    $("#app").innerHTML = `<div class="card donecard">
+      <div class="ring ${pct >= 50 ? "pass" : "fail"}"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="trk" cx="60" cy="60" r="${R}"/><circle class="val" id="rval" cx="60" cy="60" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="${C}" data-off="${C * (1 - s.right / n)}"/></svg>
+        <div class="rin"><b id="rnum" data-to="${s.right}">0</b><small>von ${n} richtig</small></div></div>
+      <h2>${head}</h2><p class="muted" style="margin-top:-6px">${sub}</p>
+      <div class="chips"><div><b class="pass">${s.right}</b>richtig</div><div><b class="fail">${n - s.right}</b>falsch</div><div><b>🔥 ${s.best}</b>beste Serie</div><div><b>${today()}</b>heute${today() >= goal ? " ✅" : " / " + goal}</div></div></div>`;
     foot(`<button class="btn sec" data-go="${s.back}">Zurück</button><button class="btn" id="again">Neue Runde</button>`);
-    enter(); countUp($("#rnum"), 800); SFX.done(); if (pct >= 80) setTimeout(() => confetti(60), 500);
+    enter(); countUp($("#rnum"), 900); SFX.done();
+    requestAnimationFrame(() => requestAnimationFrame(() => { const v = $("#rval"); if (v) v.style.strokeDashoffset = v.dataset.off; }));
+    if (pct >= 80) setTimeout(() => confetti(pct === 100 ? 120 : 70), 700);
     $("#again").onclick = () => router(true);
   }
 
@@ -384,7 +399,7 @@
       <div class="card"><div class="qtext">${esc(q.q)}</div><div class="hint">${S.settings.showCount ? `<span class="count">👉 ${countText(q)}</span> · ${e.ans[e.i].length} gewählt` : "Eine oder mehrere Antworten sind richtig."}</div>`;
     e.order[e.i].forEach((ai, k) => {
       const sel = e.ans[e.i].includes(ai);
-      html += `<button class="ans ${sel ? "sel" : ""}" data-a="${ai}"><span class="box">${sel ? "✓" : ""}</span><span>${String.fromCharCode(65 + k)}) ${esc(q.a[ai])}</span></button>`;
+      html += `<button class="ans ${sel ? "sel" : ""}" data-a="${ai}" aria-label="Antwort ${String.fromCharCode(65 + k)}"><span class="box">${sel ? "✓" : String.fromCharCode(65 + k)}</span><span>${esc(q.a[ai])}</span></button>`;
     });
     html += `<button class="flagbtn ${e.flag[e.i] ? "on" : ""}" id="eflag" style="margin-top:6px">⚑ ${e.flag[e.i] ? "zur Kontrolle markiert" : "später prüfen"}</button></div>
       <div class="card"><div class="muted" style="margin-bottom:8px">Übersicht (blau = beantwortet, gelber Rand = markiert)</div><div class="navgrid">
@@ -448,7 +463,7 @@
     e.order[i].forEach((ai, k) => {
       const good = q.c.includes(ai), s = sel.includes(ai);
       const cls = good && s ? "ok sel" : good ? "ok miss" : s ? "bad" : "";
-      h += `<button class="ans ${cls}" disabled><span class="box">${good ? "✓" : s ? "✗" : ""}</span><span>${String.fromCharCode(65 + k)}) ${esc(q.a[ai])}</span></button>`;
+      h += `<button class="ans ${cls}" disabled><span class="box">${good ? "✓" : s ? "✗" : String.fromCharCode(65 + k)}</span><span>${esc(q.a[ai])}</span></button>`;
     });
     h += `<div class="expl ${e.res[i] ? "ok" : "bad"}"><b>${e.pts[i]} von ${q.c.length} ${q.c.length === 1 ? "Punkt" : "Punkten"}.</b> ${esc(q.e || "")}${q.p ? `<br><span class="para">📌 ${esc(q.p)}</span>` : ""}</div></div>`;
     $("#review").innerHTML = h; $("#review").scrollIntoView({ behavior: "smooth" });

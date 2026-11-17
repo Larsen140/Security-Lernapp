@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.0 vom 17.11.2026
+- **Version:** 2.1 vom 17.11.2026
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
@@ -33,6 +33,14 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.1 – 17.11.2026
+- Lernrunden ≤ 30 Fragen: segmentierte Fortschrittsanzeige (`session.hist`), sonst Balken
+- Antwortkästchen zeigen Buchstaben; Rückmeldung mit Symbol (`.vhead`), gestaffeltes Aufdecken (`--k`)
+- 🔥-Zähler als Abzeichen an der Fragekarte
+- Rundenende mit SVG-Ring und Kennzahlen (`.donecard`)
+- Sachgebietsseite mit dunklem Kopf (`.thero`) und Lernmodus-Liste (`.mode`)
+- Kachelsymbole in getönten Feldern, Navigationssymbol hüpft beim Wechsel
 
 ### 2.0 – 17.11.2026
 **Aufbau**

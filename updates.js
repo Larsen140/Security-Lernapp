@@ -2,6 +2,17 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.1", d: "2026-11-17", items: [
+      "Fortschritt beim Lernen als Felder: jedes Feld eine Frage, grün richtig, rot falsch, gelb die aktuelle",
+      "Antworten mit Buchstaben im Kästchen, Buchstaben stehen nicht mehr doppelt im Text",
+      "Neue Rückmeldung nach „Antwort prüfen“ mit großem ✓ oder ✗; die Lösungen erscheinen nacheinander",
+      "🔥-Serie als Abzeichen an der Frage statt in einer eigenen Zeile",
+      "Rundenende neu: Ring, der sich füllt, dazu richtig, falsch, beste Serie und Tagesziel",
+      "Sachgebietsseite neu: dunkler Kopf mit Prozent und Balken, Lernmodi als übersichtliche Liste",
+      "Symbole in Kacheln und Navigation, kleines Hüpfen beim Wechsel des Reiters"
+    ]
+  },
+  {
     v: "2.0", d: "2026-11-17", items: [
       "Neue Navigation unten: Start, Lernen, Prüfung, Fragen, Mehr",
       "Neue Startseite mit Lernserie 🔥 (Tage in Folge) und Tagesziel, einstellbar unter Mehr",
