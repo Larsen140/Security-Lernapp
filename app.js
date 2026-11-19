@@ -477,7 +477,7 @@ Nenne die passenden Paragraphen (z. B. § 32 StGB, § 127 StPO, § 34a GewO, Bew
 Wenn der Lernende eine Frage noch NICHT beantwortet hat, gib zuerst nur Denkanstöße und Hinweise, ohne die Lösung zu verraten – außer er bittet ausdrücklich um die Lösung.
 Wenn er schon geantwortet hat, erkläre, warum die richtigen Antworten richtig und die falschen falsch sind.
 Gib Merkhilfen (Eselsbrücken), wenn sie helfen. Sei ehrlich, wenn du dir unsicher bist, und verweise dann auf den Gesetzestext oder den Dozenten.
-Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
+Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5 kurze Stichpunkte. Nur wenn der Lernende ausdrücklich mehr will, antworte ausführlicher.`;
   let ai = null;
   function qContext(q, sel, order) {
     if (!q) return "";
@@ -515,6 +515,8 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     ai = old && !old.busy ? old : { key, ctx: qContext(q, sel, order), msgs: [], busy: false, answered: !!sel, hasQ: !!q, qText: q ? q.q : "" };
     chats[key] = ai;
     $("#ai").style.display = "flex"; renderAI();
+    const cf = aiConf();
+    if (cf.key && !cf.lite && !openAI.refreshing) { openAI.refreshing = true; listModels(cf.key).then(lm => { const c = aiConf(); c.lite = lm.lite; c.models = c.models || lm.models.slice(0, 6); aiSave(c); }).catch(() => {}); }
     setTimeout(() => { const t = $("#aiin"); if (t && aiConf().key && !matchMedia("(pointer:coarse)").matches) t.focus(); }, 350);
   }
   function closeAI() { if (ai && ai.ctl) ai.ctl.abort(); $("#ai").style.display = "none"; ai = null; }
@@ -559,7 +561,8 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     b.querySelectorAll("[data-copy]").forEach(x => x.onclick = () => navigator.clipboard.writeText(ai.msgs[+x.dataset.copy].content).then(() => toast("Antwort kopiert")).catch(() => toast("Kopieren nicht möglich")));
     const send = $("#aisend"); send.classList.toggle("stop", !!ai.busy); send.innerHTML = ai.busy ? "■" : "↑"; send.setAttribute("aria-label", ai.busy ? "Stoppen" : "Senden");
     send.disabled = !ai.busy && !$("#aiin").value.trim();
-    setStatus(ai.busy ? "schreibt …" : "Gemini · bereit", !ai.busy);
+    const cf = aiConf(), mdl = (modelOrder(cf)[0] || "").replace(/^models\//, "").replace(/^gemini-/, "");
+    setStatus(ai.busy ? (ai.streaming ? "schreibt …" : "denkt nach …") : (cf.speed === "gruendlich" ? "🧠 " : "⚡ ") + mdl + (ai.took ? " · " + ai.took.toFixed(1).replace(".", ",") + " s" : ""), !ai.busy);
   }
   function retryAI() {
     if (!ai || ai.busy) return;
@@ -580,29 +583,53 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       out.content = t; el.innerHTML = md(t);
       const b = $("#ai .aibody"); if (b.scrollHeight - b.scrollTop - b.clientHeight < 160) b.scrollTop = b.scrollHeight;
     };
+    const t0 = Date.now(), first = modelOrder(conf)[0];
+    let phase = "denkt nach … ";
+    const tick = setInterval(() => { if (chat === ai && !out.content) setStatus(phase + Math.round((Date.now() - t0) / 1000) + " s"); }, 1000);
     try {
       let txt;
-      try { txt = await streamAI(conf, msgs, onText, ctl.signal); }
+      try { txt = await streamAI(conf, msgs, onText, ctl.signal, first); rememberModel(conf, first, conf.way || "query"); }
       catch (err) {
         if (ctl.signal.aborted) throw err;
         if (out.content) throw err; // mitten im Text abgebrochen
-        txt = await callAI(conf, msgs); // ohne Streaming, mit Modellwechsel
+        phase = "versucht anderes Modell … "; if (chat === ai) setStatus(phase);
+        txt = await callAI(conf, msgs, null, err.slow ? first : null); // ohne Streaming, mit Modellwechsel
       }
       out.content = txt || out.content || "(keine Antwort)";
+      chat.took = (Date.now() - t0) / 1000;
       if (!chat.msgs.includes(out)) chat.msgs.push(out);
     } catch (err) {
       if (ctl.signal.aborted) { if (out.content) { out.content += "\n\n*(gestoppt)*"; if (!chat.msgs.includes(out)) chat.msgs.push(out); } }
       else if (out.content) { out.content += "\n\n*(Verbindung abgebrochen)*"; if (!chat.msgs.includes(out)) chat.msgs.push(out); }
       else chat.msgs.push({ role: "assistant", err: true, content: "⚠️ **Die KI antwortet gerade nicht.**\n" + err.message + (navigator.onLine ? "" : " Du bist offline.") + "\n\nTipp nochmal auf „Nochmal versuchen“. Hilft das nicht: Einstellungen → „KI testen“." });
     }
+    clearInterval(tick);
     chat.busy = false; chat.streaming = false; chat.ctl = null;
     if (chat === ai) renderAI();
   }
   // Antwort Stück für Stück empfangen (Server-Sent Events)
-  async function streamAI(conf, msgs, onText, signal) {
-    const way = conf.way || conf.auth || "query", model = conf.model;
-    const r = await gemFetch(GEM + model + ":streamGenerateContent?alt=sse", { method: "POST", headers: { "content-type": "application/json" }, body: genBody(model, msgs, true), signal }, conf.key, way, 120000);
-    if (!r.ok) { const d = await r.json().catch(() => ({})); throw apiError(r, d); }
+  async function streamAI(conf, msgs, onText, signal, model) {
+    const way = conf.way || conf.auth || "query";
+    // Kommt nach 15 Sekunden noch kein Text, gilt das Modell als überlastet -> anderes Modell
+    const slow = new AbortController(); let got = false;
+    const tmr = setTimeout(() => { if (!got) slow.abort(); }, 15000);
+    signal.addEventListener("abort", () => slow.abort());
+    try {
+      let r;
+      for (;;) {
+        r = await gemFetch(GEM + model + ":streamGenerateContent?alt=sse", { method: "POST", headers: { "content-type": "application/json" }, body: genBody(model, msgs, thinkStage(conf, model)), signal: slow.signal }, conf.key, way, 120000);
+        if (r.ok) break;
+        const d = await r.json().catch(() => ({}));
+        if (isThinkErr(r, d) && thinkStage(conf, model) < 2) { thinkFailed(conf, model); continue; }
+        throw apiError(r, d);
+      }
+      return await readStream(r, t => { got = true; onText(t); });
+    } catch (err) {
+      if (!got && slow.signal.aborted && !signal.aborted) throw Object.assign(new Error("Modell antwortet zu langsam"), { slow: true });
+      throw err;
+    } finally { clearTimeout(tmr); }
+  }
+  async function readStream(r, onText) {
     if (!r.body || !r.body.getReader) throw new Error("Streaming nicht möglich");
     const rd = r.body.getReader(), dec = new TextDecoder(); let buf = "", txt = "", finish = "";
     for (;;) {
@@ -640,13 +667,24 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     return fetch(url, opt).finally(() => clearTimeout(t));
   }
   const SAFETY = ["HARASSMENT", "HATE_SPEECH", "SEXUALLY_EXPLICIT", "DANGEROUS_CONTENT"].map(c => ({ category: "HARM_CATEGORY_" + c, threshold: "BLOCK_ONLY_HIGH" }));
-  function thinkingFor(model) {
-    if (/gemini-2\.5/.test(model)) return { thinkingBudget: /pro/.test(model) ? 128 : 0 };
-    if (/gemini-[3-9]/.test(model)) return { thinkingLevel: "low" };
+  function thinkingFor(model, stage) {
+    if (stage >= 2) return null;
+    if (/gemini-2\.5/.test(model)) return stage ? null : { thinkingBudget: /pro/.test(model) ? 128 : 0 };
+    if (/gemini-[3-9]/.test(model)) return { thinkingLevel: stage ? "low" : "minimal" };
     return null;
   }
-  function genBody(model, msgs, withThinking) {
-    const gc = { maxOutputTokens: 8192 }, th = withThinking && thinkingFor(model);
+  // Welche Denk-Stufe ein Modell akzeptiert, wird gemerkt
+  const thinkStage = (conf, model) => (conf.think && conf.think[model]) || 0;
+  function thinkFailed(conf, model) { conf.think = conf.think || {}; conf.think[model] = thinkStage(conf, model) + 1; aiSave(conf); }
+  const isThinkErr = (r, d) => r.status === 400 && /think/i.test((d && d.error && d.error.message) || "");
+  // Reihenfolge der Modelle: „Schnell“ nimmt zuerst Flash-Lite, „Gründlich“ zuerst Flash
+  function modelOrder(conf) {
+    const fast = conf.speed !== "gruendlich";
+    const list = fast ? [conf.fast].concat(conf.lite || [], [conf.model], conf.models || []) : [conf.model].concat(conf.models || [], conf.lite || []);
+    return list.filter((m, i, a) => m && a.indexOf(m) === i);
+  }
+  function genBody(model, msgs, stage) {
+    const gc = { maxOutputTokens: 2048 }, th = thinkingFor(model, stage || 0);
     if (th) gc.thinkingConfig = th;
     return JSON.stringify({
       system_instruction: { parts: [{ text: AI_SYSTEM }] },
@@ -660,20 +698,18 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     e.status = r.status; return e;
   }
   function netError(err) {
-    if (err.name === "AbortError") return Object.assign(new Error("Keine Antwort innerhalb von 60 Sekunden"), { net: true });
+    if (err.name === "AbortError") return Object.assign(new Error("Keine Antwort in angemessener Zeit, Modell vermutlich überlastet"), { net: true, slow: true });
     return Object.assign(new Error("Verbindung zu Google blockiert (" + err.message + ")"), { net: true });
   }
   // Eine Anfrage an ein Modell auf einem Weg
   async function genOnce(conf, model, way, msgs) {
-    let r;
-    try { r = await gemFetch(GEM + model + ":generateContent", { method: "POST", headers: { "content-type": "application/json" }, body: genBody(model, msgs, true) }, conf.key, way); }
-    catch (err) { throw netError(err); }
-    let d = await r.json().catch(() => ({}));
-    // Falls das Modell die Denk-Einstellung nicht kennt: ohne noch einmal
-    if (r.status === 400 && /thinking/i.test((d.error && d.error.message) || "")) {
-      try { r = await gemFetch(GEM + model + ":generateContent", { method: "POST", headers: { "content-type": "application/json" }, body: genBody(model, msgs, false) }, conf.key, way); }
+    let r, d;
+    for (;;) {
+      try { r = await gemFetch(GEM + model + ":generateContent", { method: "POST", headers: { "content-type": "application/json" }, body: genBody(model, msgs, thinkStage(conf, model)) }, conf.key, way, 20000); }
       catch (err) { throw netError(err); }
       d = await r.json().catch(() => ({}));
+      if (isThinkErr(r, d) && thinkStage(conf, model) < 2) { thinkFailed(conf, model); continue; } // Modell kennt die Denk-Einstellung nicht
+      break;
     }
     if (!r.ok) throw apiError(r, d);
     if (d.promptFeedback && d.promptFeedback.blockReason) throw new Error("Google hat die Frage blockiert (" + d.promptFeedback.blockReason + ")");
@@ -683,16 +719,16 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
     return txt;
   }
   // Probiert den gespeicherten Weg/Modell zuerst, dann die anderen. Merkt sich, was funktioniert.
-  async function callAI(conf, msgs, log) {
+  async function callAI(conf, msgs, log, skip) {
     const ways = [conf.way || conf.auth].filter(w => WAYS.includes(w)).concat(WAYS).filter((w, i, a) => a.indexOf(w) === i);
-    const models = [conf.model].concat(conf.models || []).filter((m, i, a) => m && a.indexOf(m) === i).slice(0, 4);
+    const models = modelOrder(conf).filter(m => m !== skip).slice(0, 4);
     let last = null;
     for (const model of models) {
       for (const way of ways) {
         try {
           const txt = await genOnce(conf, model, way, msgs);
           if (log) log(`✅ ${model.replace(/^models\//, "")} · Weg „${way}“: funktioniert`);
-          if (way !== conf.way || model !== conf.model) { conf.way = way; conf.model = model; aiSave(conf); }
+          rememberModel(conf, model, way);
           return txt;
         } catch (err) {
           last = err;
@@ -703,6 +739,12 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       if (last && !last.net && !(last.status === 404 || last.status === 429 || last.status >= 500)) break;
     }
     throw last || new Error("Unbekannter Fehler");
+  }
+  function rememberModel(conf, model, way) {
+    const isLite = /lite/.test(model), key = conf.speed !== "gruendlich" && isLite ? "fast" : (!isLite ? "model" : null);
+    let changed = way !== conf.way; conf.way = way;
+    if (key && conf[key] !== model) { conf[key] = model; changed = true; }
+    if (changed) aiSave(conf);
   }
   async function listModels(key) {
     let last;
@@ -718,7 +760,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
         const flash = ok.filter(n => /flash/.test(n) && !/lite|image|tts|live|audio|thinking/.test(n)).sort(byVer);
         const lite = ok.filter(n => /gemini-[\d.]+-flash-lite$/.test(n)).sort(byVer);
         const list = stable.concat(flash, lite, ok.filter(n => /gemini/.test(n))).filter((m, i, a) => a.indexOf(m) === i);
-        return { way, models: list };
+        return { way, models: list.filter(m => !/lite/.test(m)), lite: lite.slice(0, 3) };
       } catch (err) { last = err.status ? err : netError(err); if (err.status) break; }
     }
     throw last;
@@ -751,9 +793,9 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
   }
   // Einrichten: Modelle holen und eine echte Testfrage schicken
   async function setupAI(key, log) {
-    const { way, models } = await listModels(key);
+    const lm = await listModels(key), { way, models } = lm;
     if (!models.length) throw new Error("Kein passendes Gemini-Modell gefunden");
-    const conf = { key, provider: "gemini", way, model: models[0], models: models.slice(0, 6) };
+    const conf = { key, provider: "gemini", way, model: models[0], models: models.slice(0, 6), lite: lm.lite, speed: (aiConf().speed || "schnell") };
     await callAI(conf, [{ role: "user", content: "Antworte nur mit: OK" }], log);
     aiSave(conf); return conf;
   }
@@ -998,7 +1040,8 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       <div class="card"><h2>🤖 KI-Lernhelfer</h2>
       <p class="muted"><b>Ohne Einrichtung:</b> Der Knopf „KI-Hilfe“ kopiert die Frage und öffnet Google Gemini (gemini.google.com, kostenloses Google-Konto genügt).<br>
       <b>Mit eigenem Schlüssel:</b> Chat direkt in der App. Es funktioniert nur ein <b>Google-Gemini-Schlüssel, der mit „AQ.“ beginnt</b> (kostenlos erhältlich auf <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a>). Der Schlüssel bleibt nur auf diesem Gerät und ist nicht im Backup.</p>
-      ${conf.key ? `<p>✅ Eingerichtet · Google Gemini · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><button class="btn sec" id="aitest">🔍 KI testen</button><div id="ailog" class="muted" style="font-size:13px;word-break:break-word"></div><button class="btn ghost" id="aicopylog" style="display:none">📋 Testergebnis kopieren</button><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
+      ${conf.key ? `<p>✅ Eingerichtet · Google Gemini · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><label>Antworten</label><select id="aispeed"><option value="schnell" ${conf.speed !== "gruendlich" ? "selected" : ""}>⚡ Schnell (Flash-Lite, kurz)</option><option value="gruendlich" ${conf.speed === "gruendlich" ? "selected" : ""}>🧠 Gründlich (Flash, etwas langsamer)</option></select>
+      <button class="btn sec" id="aitest">🔍 KI testen</button><div id="ailog" class="muted" style="font-size:13px;word-break:break-word"></div><button class="btn ghost" id="aicopylog" style="display:none">📋 Testergebnis kopieren</button><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
         : `<input type="password" id="aikey" placeholder="Gemini-Schlüssel (AQ.…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
       <div class="card"><h2>💾 Backup</h2><p class="muted">Dein Fortschritt wird nur auf diesem Gerät gespeichert. Mit einem Backup kannst du ihn sichern oder auf ein anderes Gerät übertragen.</p>
       <button class="btn sec" id="exp">Backup sichern</button>
@@ -1028,10 +1071,11 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
         sv.disabled = false; sv.textContent = "Speichern & testen";
       }
     };
+    const sp = $("#aispeed"); if (sp) sp.onchange = () => { const c = aiConf(); c.speed = sp.value; aiSave(c); toast(sp.value === "gruendlich" ? "KI: gründlich" : "KI: schnell"); };
     const tb = $("#aitest"); if (tb) tb.onclick = async () => {
       const box = $("#ailog"); box.innerHTML = "Teste … (bis zu 1 Min.)<br>"; tb.disabled = true;
       try { const c = aiConf(); const lm = await listModels(c.key).catch(e => { box.innerHTML += "Modellliste: " + esc(e.message) + "<br>"; return null; });
-        if (lm) { c.models = lm.models.slice(0, 6); aiSave(c); box.innerHTML += "Modellliste: ✅ " + lm.models.length + " Modelle (Weg „" + lm.way + "“)<br>"; }
+        if (lm) { c.models = lm.models.slice(0, 6); c.lite = lm.lite; aiSave(c); box.innerHTML += "Modellliste: ✅ " + lm.models.length + " Modelle (Weg „" + lm.way + "“)<br>"; }
         const t = await callAI(c, [{ role: "user", content: "Antworte nur mit: OK" }], logTo(box));
         box.innerHTML += "<b>Antwort: " + esc(t.slice(0, 80)) + "</b> – alles in Ordnung ✅"; }
       catch (err) {

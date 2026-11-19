@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.3 vom 19.11.2026
+- **Version:** 2.4 vom 19.11.2026
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
@@ -33,6 +33,14 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.4 – 19.11.2026
+- KI-Tempo `conf.speed` („schnell“ Standard / „gruendlich“): Schnell nimmt zuerst Flash-Lite (`conf.lite`, `conf.fast`), Gründlich zuerst Flash
+- Denk-Einstellung „minimal“ (Gemini 3) bzw. Budget 0 (2.5); lehnt ein Modell sie ab, wird „low“ bzw. keine Angabe probiert und je Modell gemerkt (`conf.think`)
+- Streaming bricht ab, wenn nach 15 s noch kein Text kommt, und wechselt das Modell; Einzelanfragen höchstens 20 s (vorher 120 s bzw. 60 s)
+- `maxOutputTokens` 2048, Systemanweisung verlangt kurze Antworten
+- Fehlt die Lite-Liste (alter Stand), wird die Modellliste beim Öffnen des Chats im Hintergrund nachgeladen
+- Statuszeile: „denkt nach … n s“, danach Modell und Antwortzeit
 
 ### 2.3 – 19.11.2026
 - Pinch-Rauszoomen wird per `touchmove`/`gesturechange` abgefangen, solange `visualViewport.scale` ≤ 1; Reinzoomen bleibt erlaubt

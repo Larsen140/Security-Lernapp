@@ -2,6 +2,15 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.4", d: "2026-11-19", items: [
+      "KI deutlich schneller: neuer Modus „Schnell“ (Standard) mit dem schnelleren Modell Flash-Lite und minimaler Denkzeit",
+      "Kürzere, auf den Punkt gebrachte Antworten; mehr bekommst du mit „Noch einfacher“ oder indem du nachfragst",
+      "Ist ein Modell überlastet, wechselt die App nach 15 Sekunden automatisch (vorher bis zu 2 Minuten Wartezeit)",
+      "Die Statuszeile im Chat zeigt, wie lange die KI schon nachdenkt, und danach, wie lange die Antwort gedauert hat",
+      "Unter Mehr → KI-Lernhelfer kannst du auf „Gründlich“ umstellen, wenn du ausführlichere Antworten willst"
+    ]
+  },
+  {
     v: "2.3", d: "2026-11-19", items: [
       "Rauszoomen mit zwei Fingern ist jetzt ganz gesperrt, auch das kurze Auseinanderziehen am iPhone",
       "Reinzoomen bleibt möglich, und von dort kommst du wie gewohnt zurück zur normalen Größe"
