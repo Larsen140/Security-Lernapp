@@ -787,11 +787,11 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
   // 2) Nur Lösungen: „1. Frage“, darunter die richtigen Antworten als Aufzählung (• oder -), ohne falsche Antworten
   function parseImport(txt) {
     const out = []; let cur = null, last = null;
-    const MARK = /^\s*(✅|✔️?|☑️?|✓|\[x\]|\(x\)|Richtig\s*[·:-])\s*/i;
-    const LABEL = /^(KATI-Auswertung|Lösungsvorschlag|Lösung|Lösungen|Antwort(en)?|Richtige Antworten?)\s*:?$/i;
+    const MARK = /^\s*(✅|✔️?|☑️?|✓|\[x\]|\(x\)|Richtig\s*[·:-]|Lösungsvorschlag\s*[·:-])\s*/i;
+    const LABEL = /^(KATI-Auswertung|Lösungsvorschlag|Lösung|Lösungen|Antwort(en)?|Richtige Antworten?|Lösung aus .{3,60})\s*:?$/i;
     String(txt || "").replace(/\r/g, "").split("\n").forEach(raw => {
       const line = raw.trim(); if (!line) return;
-      if (/^[^.?!]{1,60}\/\s*\d{1,4}$/.test(line) || /^(Seite\s*)?\d{1,4}(\s*(von|\/)\s*\d{1,4})?$/i.test(line)) return; // Seitenzahlen, Fußzeilen
+      if (/^[^.?!]{1,60}\/\s*\d{1,4}$/.test(line) || /^\S{1,24}\s*[·•|–-]\s*\d{1,4}$/.test(line) || /^(Seite\s*)?\d{1,4}(\s*(von|\/)\s*\d{1,4})?$/i.test(line)) return; // Seitenzahlen, Fußzeilen
       if (/^Test\s+\d+$/i.test(line) || /^Weitere Fragen\b/i.test(line)) return; // Zwischenüberschriften
       const opt = line.match(/^([A-Fa-f])\s*[).\]:]\s*(.*)$/);
       const bul = line.match(/^[•▪●◦·–-]\s*(.+)$/);
@@ -799,6 +799,7 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       if (cur && LABEL.test(line)) { cur.label = line.replace(/:$/, ""); last = "l"; return; }
       if (opt && cur && !cur.sol) {
         let t = opt[2], ok = MARK.test(t);
+        if (/^\s*Lösungsvorschlag\s*[·:-]/i.test(t)) cur.label = "Lösungsvorschlag";
         t = t.replace(MARK, "");
         if (/\s*\((richtig|korrekt)\)\s*$/i.test(t)) { ok = true; t = t.replace(/\s*\((richtig|korrekt)\)\s*$/i, ""); }
         if (ok) cur.c.push(cur.a.length);
@@ -954,13 +955,14 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
       fresh.forEach(x => { x.topic = sel === "auto" ? guessTopic(x) : sel; });
       addDistractors(fresh);
       const solN = fresh.filter(x => x.sol).length, vorN = fresh.filter(x => x.label === "Lösungsvorschlag").length;
+      const vorInfo = !solN && vorN ? `<p class="muted">${vorN} davon sind als „Lösungsvorschlag“ markiert, also noch nicht bestätigt. Das steht dann auch bei der Frage.</p>` : "";
       const per = {}; fresh.forEach(x => per[x.topic] = (per[x.topic] || 0) + 1);
       box.innerHTML = `<p><b>${parsed.length} Fragen erkannt</b>${parsed.length - fresh.length ? `, davon ${parsed.length - fresh.length} doppelt oder schon vorhanden` : ""}.</p>
         ${solN ? `<p class="muted">${solN} davon enthalten nur die richtigen Antworten. Die App ergänzt falsche Antworten aus anderen Fragen desselben Sachgebiets.${vorN ? ` ${vorN} sind als „Lösungsvorschlag“ markiert, also noch nicht bestätigt.` : ""}</p>` : ""}
-        ${fresh.length ? `<p class="muted">${Object.keys(per).map(t => esc(topicById(t).short) + ": " + per[t]).join(" · ")}</p><button class="btn" id="impgo">${fresh.length} Fragen übernehmen</button>` : ""}`;
+        ${vorInfo}${fresh.length ? `<p class="muted">${Object.keys(per).map(t => esc(topicById(t).short) + ": " + per[t]).join(" · ")}</p><button class="btn" id="impgo">${fresh.length} Fragen übernehmen</button>` : ""}`;
       const go = $("#impgo"); if (go) go.onclick = () => {
         const t0 = Date.now();
-        fresh.forEach((x, i) => S.custom.push({ id: "own-" + t0 + "-" + i, topic: x.topic, q: x.q, a: x.a, c: x.c, e: x.e || "", p: lawRef(x.q), own: true, imp: true }));
+        fresh.forEach((x, i) => S.custom.push({ id: "own-" + t0 + "-" + i, topic: x.topic, q: x.q, a: x.a, c: x.c, e: x.e || (x.label === "Lösungsvorschlag" ? "Achtung: nur ein Lösungsvorschlag, noch nicht bestätigt." : ""), p: lawRef(x.q), own: true, imp: true }));
         save(); toast(fresh.length + " Fragen übernommen ✅"); customPage();
       };
     };

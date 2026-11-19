@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.1 vom 17.11.2026
+- **Version:** 2.2 vom 19.11.2026
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
@@ -33,6 +33,12 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.2 – 19.11.2026
+- Import: Markierung „Lösungsvorschlag ·“ vor einer Antwort zählt als richtig und setzt den Hinweis „noch nicht bestätigt“
+- Zeile „Lösung aus früherer KATI-Auswertung“ wird als Kennzeichnung erkannt statt an die Frage angehängt
+- Fußzeilen der Form „Wort · Zahl“ werden ignoriert
+- Getestet mit vier Quellen (drei PDFs, eine Textliste), einzeln und nacheinander: keine Reste von Markierungen, Dubletten werden übersprungen
 
 ### 2.1 – 17.11.2026
 - Lernrunden ≤ 30 Fragen: segmentierte Fortschrittsanzeige (`session.hist`), sonst Balken

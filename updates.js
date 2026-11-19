@@ -2,6 +2,13 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.2", d: "2026-11-19", items: [
+      "Import erkennt jetzt auch Antworten, die mit „Lösungsvorschlag ·“ markiert sind",
+      "Seitenzahlen wie „KATI · 2“ landen nicht mehr im Antworttext",
+      "Lösungsvorschläge werden auch bei Ankreuzfragen als „noch nicht bestätigt“ gekennzeichnet"
+    ]
+  },
+  {
     v: "2.1", d: "2026-11-17", items: [
       "Fortschritt beim Lernen als Felder: jedes Feld eine Frage, grün richtig, rot falsch, gelb die aktuelle",
       "Antworten mit Buchstaben im Kästchen, Buchstaben stehen nicht mehr doppelt im Text",
