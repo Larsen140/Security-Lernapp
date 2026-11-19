@@ -2,6 +2,12 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.3", d: "2026-11-19", items: [
+      "Rauszoomen mit zwei Fingern ist jetzt ganz gesperrt, auch das kurze Auseinanderziehen am iPhone",
+      "Reinzoomen bleibt möglich, und von dort kommst du wie gewohnt zurück zur normalen Größe"
+    ]
+  },
+  {
     v: "2.2", d: "2026-11-19", items: [
       "Import erkennt jetzt auch Antworten, die mit „Lösungsvorschlag ·“ markiert sind",
       "Seitenzahlen wie „KATI · 2“ landen nicht mehr im Antworttext",

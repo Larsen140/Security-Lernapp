@@ -49,6 +49,9 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 - Töne: `SFX` in `app.js` (Web Audio, keine Dateien), Einstellung `S.settings.sound`. Tagesziel `S.settings.goal`, Lerntage `S.days` (für Serie).
 - Laufende Prüfung in `localStorage` `slapp-exam` (IDs statt Fragen, `qAny()` stellt sie wieder her).
 
+## Zoom
+- Rauszoomen ist gesperrt (Viewport `minimum-scale=1` + Abfangen der Pinch-Geste in `app.js`), Reinzoomen bleibt erlaubt. Nichts darf breiter als der Bildschirm werden (`overflow-wrap:anywhere`), sonst lässt iOS wieder rauszoomen.
+
 ## Lernstand
 - Prozentzahl auf der Startseite = (sicher + 0,5 × „1× richtig“) / alle Fragen; unter 10 % mit einer Nachkommastelle. Absperrband: voller Teil = sicher, heller Teil = halbe Punkte.
 

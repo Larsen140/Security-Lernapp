@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.2 vom 19.11.2026
+- **Version:** 2.3 vom 19.11.2026
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
@@ -33,6 +33,11 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.3 – 19.11.2026
+- Pinch-Rauszoomen wird per `touchmove`/`gesturechange` abgefangen, solange `visualViewport.scale` ≤ 1; Reinzoomen bleibt erlaubt
+- Viewport zusätzlich mit `shrink-to-fit=no`
+- Alle Seiten (inkl. KI-Chat, Prüfung, Ergebnis, Rundenende, Import-Vorschau) auf 320 und 375 px Breite geprüft: nichts ragt über den Rand
 
 ### 2.2 – 19.11.2026
 - Import: Markierung „Lösungsvorschlag ·“ vor einer Antwort zählt als richtig und setzt den Hinweis „noch nicht bestätigt“

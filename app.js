@@ -1098,6 +1098,22 @@ Antworte ohne lange Einleitung. Nutze höchstens kurze Listen.`;
   });
   window.addEventListener("hashchange", () => { if (ai) closeAI(); router(); });
   initAIPanel();
+  // Rauszoomen verhindern: Zwei-Finger-Geste nach innen wird bei normaler Größe abgefangen.
+  // Reinzoomen bleibt möglich (Barrierefreiheit), und von dort zurück bis zur normalen Größe auch.
+  const vScale = () => (window.visualViewport && visualViewport.scale) || 1;
+  let pinch0 = 0;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  document.addEventListener("touchstart", ev => { if (ev.touches.length === 2) pinch0 = dist(ev.touches); }, { passive: true });
+  document.addEventListener("touchmove", ev => {
+    if (ev.touches.length !== 2 || !pinch0) return;
+    if (dist(ev.touches) < pinch0 && vScale() <= 1.01) ev.preventDefault();
+  }, { passive: false });
+  document.addEventListener("touchend", ev => { if (ev.touches.length < 2) pinch0 = 0; }, { passive: true });
+  // Safari meldet Pinch-Gesten zusätzlich als eigene Ereignisse
+  let gScale = 1;
+  document.addEventListener("gesturestart", () => { gScale = vScale(); }, { passive: false });
+  document.addEventListener("gesturechange", ev => { if (ev.scale < 1 && gScale <= 1.01) ev.preventDefault(); }, { passive: false });
+
   // Tastatur (Computer): 1–6 wählt Antworten, Enter prüft bzw. geht weiter, Pfeile blättern in der Prüfung
   document.addEventListener("keydown", ev => {
     if (ai || /INPUT|TEXTAREA|SELECT/.test((ev.target.tagName || ""))) return;
