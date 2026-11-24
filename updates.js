@@ -2,6 +2,15 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.11", d: "2026-11-24", items: [
+      "Neu: Vorlesen. Tippe bei einer Frage auf 🔊, dann liest die App Frage und Antworten vor (A, B, C … in der angezeigten Reihenfolge)",
+      "Nach „Antwort prüfen“ liest 🔊 vor, ob es richtig war, welche Antworten stimmen und die Erklärung",
+      "Unter Mehr → Vorlesen: jede Frage automatisch vorlesen lassen, Tempo und Stimme wählen, Probe hören",
+      "Abkürzungen werden ausgesprochen, z. B. „§ 32 StGB“ als „Paragraf 32 Strafgesetzbuch“",
+      "Funktioniert auch in der Prüfungssimulation und in der Fokus-Runde; am PC mit der Taste V"
+    ]
+  },
+  {
     v: "2.10", d: "2026-11-24", items: [
       "Dein Prüfungstermin 10.12.2026 ist eingetragen (änderbar unter Mehr → Lernen)",
       "Das Tagesziel stellst du nicht mehr selbst ein: Die App rechnet es aus dem Prüfungstermin aus. Alle Fragen, die noch nicht sicher sitzen, werden auf die verbleibenden Tage verteilt",

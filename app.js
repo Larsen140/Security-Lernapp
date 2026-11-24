@@ -336,6 +336,91 @@
     session = { list, i: 0, sel: [], checked: false, right: 0, title, back, order: null, combo: 0, best: 0, hist: [], focus: mode === "fokus" };
     renderQ();
   }
+  // ---------- Vorlesen (Sprachausgabe des Geräts, keine Daten nach außen) ----------
+  const TTS = (() => {
+    const has = typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance !== "undefined";
+    let voices = [], token = 0, busyId = null;
+    const load = () => { try { voices = speechSynthesis.getVoices().filter(v => /^de([-_]|$)/i.test(v.lang)); } catch (e) { voices = []; } };
+    if (has) { load(); try { speechSynthesis.addEventListener("voiceschanged", load); } catch (e) { speechSynthesis.onvoiceschanged = load; } }
+    const conf = () => Object.assign({ auto: false, rate: 1, voice: "" }, S.settings.tts);
+    function voice() {
+      const c = conf(); if (!voices.length) load();
+      return voices.find(v => v.voiceURI === c.voice)
+        || voices.find(v => /natural|online|premium|enhanced|neural/i.test(v.name))
+        || voices.find(v => /google/i.test(v.name))
+        || voices.find(v => /^de-DE/i.test(v.lang)) || voices[0] || null;
+    }
+    // Abkürzungen ausschreiben, damit die Stimme sie richtig ausspricht
+    const WORDS = [[/§§/g, "Paragrafen "], [/§/g, "Paragraf "], [/\bAbs\./g, "Absatz"], [/\bNr\./g, "Nummer"], [/\bS\. (\d)/g, "Satz $1"],
+      [/\bz\.\s?B\./g, "zum Beispiel"], [/\bbzw\./g, "beziehungsweise"], [/\bu\.\s?a\./g, "unter anderem"], [/\bggf\./g, "gegebenenfalls"],
+      [/\bd\.\s?h\./g, "das heißt"], [/\bi\.\s?d\.\s?R\./g, "in der Regel"], [/\busw\./g, "und so weiter"], [/\bca\./g, "circa"], [/\bvgl\./g, "vergleiche"],
+      [/\bStGB\b/g, "Strafgesetzbuch"], [/\bBGB\b/g, "Bürgerliches Gesetzbuch"], [/\bGewO\b/g, "Gewerbeordnung"], [/\bBewachV\b/g, "Bewachungsverordnung"],
+      [/\bStPO\b/g, "Strafprozessordnung"], [/\bWaffG\b/g, "Waffengesetz"], [/\bOWiG\b/g, "Ordnungswidrigkeitengesetz"], [/\bGG\b/g, "Grundgesetz"],
+      [/\bDSGVO\b/g, "D S G V O"], [/\bBDSG\b/g, "Bundesdatenschutzgesetz"], [/\bDGUV\b/g, "D G U V"], [/\bUVV\b/g, "Unfallverhütungsvorschrift"],
+      [/\bIHK\b/g, "I H K"], [/\bKATI\b/g, "Kati"], [/\bggü\./g, "gegenüber"], [/\binkl\./g, "inklusive"], [/\bmind\./g, "mindestens"], [/\bmax\./g, "maximal"]];
+    const clean = t => WORDS.reduce((x, [r, w]) => x.replace(r, w), String(t || ""))
+      .replace(/[\u{1F300}-\u{1FAFF}☀-➿️]/gu, "").replace(/[_*#>|]/g, " ").replace(/\s+/g, " ").trim();
+    // Lange Texte in Sätze teilen: Chrome bricht sonst nach etwa 15 Sekunden ab
+    function pieces(t) {
+      const out = []; (clean(t).match(/[^.!?;]+[.!?;]*\s*/g) || []).forEach(s => {
+        s = s.trim(); if (!s) return;
+        while (s.length > 220) { const cut = s.lastIndexOf(",", 220) > 60 ? s.lastIndexOf(",", 220) + 1 : s.lastIndexOf(" ", 220); out.push(s.slice(0, cut)); s = s.slice(cut).trim(); }
+        out.push(s);
+      });
+      return out;
+    }
+    function stop() { token++; busyId = null; if (has) try { speechSynthesis.cancel(); } catch (e) {} mark(); }
+    function mark() { document.querySelectorAll("[data-speak]").forEach(b => { const on = b.dataset.speak === busyId; b.classList.toggle("on", on); b.innerHTML = on ? '⏹<span class="sl"> Stopp</span>' : '🔊<span class="sl"> Vorlesen</span>'; b.setAttribute("aria-label", on ? "Vorlesen stoppen" : "Vorlesen"); }); }
+    function speak(parts, id) {
+      if (!has) { toast("Dein Browser kann leider nicht vorlesen"); return; }
+      stop(); const my = token, list = []; [].concat(parts).forEach(p => list.push(...pieces(p)));
+      if (!list.length) return;
+      busyId = id || "x"; mark();
+      const c = conf(), v = voice();
+      try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e) {}
+      list.forEach((txt, k) => {
+        const u = new SpeechSynthesisUtterance(txt);
+        u.lang = v ? v.lang : "de-DE"; if (v) u.voice = v; u.rate = +c.rate || 1; u.pitch = 1;
+        if (k === list.length - 1) u.onend = u.onerror = () => { if (my === token) { busyId = null; mark(); } };
+        speechSynthesis.speak(u);
+      });
+    }
+    return { has, speak, stop, mark, voices: () => (load(), voices), busy: () => !!busyId && has && speechSynthesis.speaking, conf, id: () => busyId };
+  })();
+  // Text zum Vorlesen: Frage mit Antworten in der angezeigten Reihenfolge
+  function sayQuestion(q, order) {
+    return ["Frage: " + q.q, ...order.map((ai, k) => "Antwort " + String.fromCharCode(65 + k) + ": " + q.a[ai] + (/[.!?]$/.test(q.a[ai]) ? "" : "."))];
+  }
+  function sayResult(q, order, sel) {
+    const ok = isRight(q, sel), right = order.map((ai, k) => q.c.includes(ai) ? String.fromCharCode(65 + k) + ": " + q.a[ai] : null).filter(Boolean);
+    return [(ok ? "Richtig!" : "Leider falsch.") + " " + (right.length === 1 ? "Richtig ist " : "Richtig sind ") + right.join(", und ") + ".", q.e || ""];
+  }
+  const speakBtn = id => TTS.has ? `<button class="flagbtn speakbtn" id="speak" aria-label="Vorlesen">🔊<span class="sl"> Vorlesen</span></button>` : "";
+  function bindSpeak(id, parts) {
+    const b = $("#speak"); if (!b) return;
+    b.dataset.speak = id; TTS.mark();
+    b.onclick = () => { if (TTS.id() === id) TTS.stop(); else TTS.speak(parts(), id); };
+  }
+
+  function ttsCard() {
+    if (!TTS.has) return `<div class="card"><h2>🔊 Vorlesen</h2><p class="muted">Dieser Browser kann leider nicht vorlesen. In Chrome, Edge und Safari geht es.</p></div>`;
+    const c = TTS.conf(), vs = TTS.voices();
+    return `<div class="card" id="ttscard"><h2>🔊 Vorlesen</h2>
+      <p class="muted">Mit 🔊 bei jeder Frage liest die App Frage und Antworten vor, nach dem Prüfen auch die Lösung mit Erklärung. Am PC geht es auch mit der Taste V.</p>
+      <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="ttsauto" style="width:22px;height:22px;margin:0" ${c.auto ? "checked" : ""}> Jede Frage automatisch vorlesen</label>
+      <label>Tempo</label><select id="ttsrate">${[[0.8, "Langsam"], [1, "Normal"], [1.15, "Etwas schneller"], [1.3, "Schnell"]].map(([v, n]) => `<option value="${v}" ${+c.rate === v ? "selected" : ""}>${n}</option>`).join("")}</select>
+      ${vs.length > 1 ? `<label>Stimme</label><select id="ttsvoice"><option value="">Automatisch (beste deutsche Stimme)</option>${vs.map(v => `<option value="${esc(v.voiceURI)}" ${c.voice === v.voiceURI ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select>` : ""}
+      ${vs.length ? "" : `<p class="muted">⚠️ Auf diesem Gerät ist keine deutsche Stimme installiert, dann klingt es englisch. <b>iPhone:</b> Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Deutsch. <b>Windows:</b> Einstellungen → Zeit und Sprache → Sprache → Deutsch → Sprachausgabe.</p>`}
+      <button class="btn sec" id="ttstest">▶ Probe hören</button></div>`;
+  }
+  function bindTts() {
+    if (!$("#ttscard")) return;
+    const set = (k, v) => { S.settings.tts = Object.assign(TTS.conf(), { [k]: v }); S.settings._t = Date.now(); save(); };
+    $("#ttsauto").onchange = ev => { set("auto", ev.target.checked); toast(ev.target.checked ? "Fragen werden automatisch vorgelesen" : "Nur noch auf Tippen vorlesen"); };
+    $("#ttsrate").onchange = ev => { set("rate", +ev.target.value); TTS.speak("So schnell lese ich jetzt vor.", "probe"); };
+    const vo = $("#ttsvoice"); if (vo) vo.onchange = ev => { set("voice", ev.target.value); TTS.speak("Hallo, so klingt diese Stimme.", "probe"); };
+    $("#ttstest").onclick = () => TTS.speak("Frage: Was ist bei Notwehr nach Paragraf 32 Strafgesetzbuch erlaubt? Antwort A: Die erforderliche Verteidigung gegen einen gegenwärtigen, rechtswidrigen Angriff.", "probe");
+  }
   function prepOrder(q) { return shuffle(q.a.map((_, i) => i)); }
   function renderQ() {
     const s = session, q = s.list[s.i];
@@ -348,7 +433,7 @@
       : `<div class="progress"><div style="width:${s.hist.length / s.list.length * 100}%"></div></div>`;
     let html = `${seg}
       <div class="qhead"><span><span class="qn">Frage <b>${s.i + 1}</b>/${s.list.length}</span><span class="pill">${t ? t.short : ""}</span>${q.own ? '<span class="pill">eigene</span>' : ""}${s.again && s.again[s.i] ? '<span class="pill again">🔁 nochmal</span>' : ""}</span>
-      <span><button class="flagbtn" id="aiq">🤖 KI-Hilfe</button> <button class="flagbtn ${S.flags[q.id] ? "on" : ""}" id="flag">⭐ ${S.flags[q.id] ? "markiert" : "merken"}</button></span></div>
+      <span>${speakBtn("l")} <button class="flagbtn" id="aiq">🤖 KI-Hilfe</button> <button class="flagbtn ${S.flags[q.id] ? "on" : ""}" id="flag">⭐ ${S.flags[q.id] ? "markiert" : "merken"}</button></span></div>
       <div class="card qcard">${s.combo >= 2 ? `<span class="combo${s.just ? " pop" : ""}">🔥 ${s.combo}</span>` : ""}<div class="qtext">${esc(q.q)}</div><div class="hint">${S.settings.showCount ? `<span class="count">👉 ${countText(q)}</span> · ${s.sel.length} gewählt` : "Wähle alle richtigen Antworten aus (eine oder mehrere)."}</div>`;
     const just = s.just; s.just = false;
     s.order.forEach((ai, k) => {
@@ -372,6 +457,11 @@
     if (s.slide) { s.slide = false; const cd = $("#app .card"); if (cd) cd.classList.add("slidein"); }
     $("#flag").onclick = () => { if (S.flags[q.id]) { delete S.flags[q.id]; forget("f:" + q.id); } else S.flags[q.id] = Date.now(); save(); renderQ(); };
     $("#aiq").onclick = () => openAI(q, s.checked ? s.sel : null, s.order);
+    // Vorlesen: vor dem Prüfen Frage und Antworten, danach das Ergebnis mit Erklärung
+    const sayKey = "l" + s.i + (s.checked ? "c" : "q") + q.id;
+    bindSpeak(sayKey, () => s.checked ? sayResult(q, s.order, s.sel) : sayQuestion(q, s.order));
+    if (TTS.conf().auto && s.said !== sayKey) { s.said = sayKey; TTS.speak(s.checked ? sayResult(q, s.order, s.sel) : sayQuestion(q, s.order), sayKey); }
+    else if (TTS.id() && TTS.id()[0] === "l" && TTS.id() !== sayKey) TTS.stop();
     document.querySelectorAll(".ans").forEach(b => b.onclick = () => {
       const a = +b.dataset.a; const i = s.sel.indexOf(a);
       if (i >= 0) s.sel.splice(i, 1); else s.sel.push(a); SFX.tap(); renderQ();
@@ -490,6 +580,7 @@
     if (location.hash !== "#/lernen/fokus") return;
     focusPill();
     if (Date.now() >= focus.end) return focusDone();
+    if (TTS.busy()) focus.act = Date.now(); // wer zuhört, ist wach
     if (!document.hidden && !$("#wakeov") && Date.now() - focus.act > WAKE_MS) wakeUp();
   }
   function endFocus(ask) {
@@ -617,7 +708,7 @@
     if (exam.done) return examResult();
     const e = exam, q = e.list[e.i];
     setHeader("Prüfung", () => { clearTimer(); go("#/pruefung"); }); // Prüfung läuft weiter und kann fortgesetzt werden
-    let html = `<div class="qhead"><span>Frage ${e.i + 1} / ${e.list.length} · <span class="pill">${topicById(q.topic).short}</span></span><span class="timer" id="timer"></span></div>
+    let html = `<div class="qhead"><span>Frage ${e.i + 1} / ${e.list.length} · <span class="pill">${topicById(q.topic).short}</span></span><span>${speakBtn("e")} <span class="timer" id="timer"></span></span></div>
       <div class="card"><div class="qtext">${esc(q.q)}</div><div class="hint">${S.settings.showCount ? `<span class="count">👉 ${countText(q)}</span> · ${e.ans[e.i].length} gewählt` : "Eine oder mehrere Antworten sind richtig."}</div>`;
     e.order[e.i].forEach((ai, k) => {
       const sel = e.ans[e.i].includes(ai);
@@ -628,6 +719,10 @@
       ${e.list.map((_, i) => `<button data-n="${i}" class="${i === e.i ? "cur" : ""} ${e.ans[i].length ? "done" : ""} ${e.flag[i] ? "flag" : ""}">${i + 1}</button>`).join("")}</div>
       <button class="btn danger" id="submit" style="margin-top:14px">Prüfung abgeben</button></div>`;
     $("#app").innerHTML = html;
+    const sayKey = "e" + e.i;
+    bindSpeak(sayKey, () => sayQuestion(q, e.order[e.i]));
+    if (TTS.conf().auto && e.said !== sayKey) { e.said = sayKey; TTS.speak(sayQuestion(q, e.order[e.i]), sayKey); }
+    else if (TTS.id() && TTS.id()[0] === "e" && TTS.id() !== sayKey) TTS.stop();
     document.querySelectorAll(".ans").forEach(b => b.onclick = () => {
       const a = +b.dataset.a, arr = e.ans[e.i], i = arr.indexOf(a);
       if (i >= 0) arr.splice(i, 1); else arr.push(a); SFX.tap(); saveExam(); examRender();
@@ -1276,6 +1371,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
       ${conf.key ? `<p>✅ Eingerichtet · Google Gemini · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><label>Antworten</label><select id="aispeed"><option value="schnell" ${conf.speed !== "gruendlich" ? "selected" : ""}>⚡ Schnell (Flash-Lite, kurz)</option><option value="gruendlich" ${conf.speed === "gruendlich" ? "selected" : ""}>🧠 Gründlich (Flash, etwas langsamer)</option></select>
       <button class="btn sec" id="aitest">🔍 KI testen</button><div id="ailog" class="muted" style="font-size:13px;word-break:break-word"></div><button class="btn ghost" id="aicopylog" style="display:none">📋 Testergebnis kopieren</button><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
         : `<input type="password" id="aikey" placeholder="Gemini-Schlüssel (AQ.…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
+      ${ttsCard()}
       ${syncCard()}
       <div class="card"><h2>💾 Backup</h2><p class="muted">Ohne Geräte-Abgleich liegt dein Fortschritt nur auf diesem Gerät. Mit einem Backup kannst du ihn zusätzlich als Datei sichern.</p>
       <button class="btn sec" id="exp">Backup sichern</button>
@@ -1335,7 +1431,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
       const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); if (!d.prog) throw 0; S = Object.assign({}, defaults, d); S.settings = Object.assign({ showCount: true, sound: true, goal: 20 }, S.settings || {}); S.days = S.days || {}; S.del = S.del || {}; save(); toast("Backup geladen ✅"); go("#/"); } catch (e) { toast("Ungültige Backup-Datei"); } };
       r.readAsText(f);
     };
-    bindSync();
+    bindSync(); bindTts();
     $("#reset").onclick = () => { if (confirm("Wirklich den gesamten Lernfortschritt löschen?")) { S.prog = {}; S.exams = []; S.flags = {}; S.resetAt = Date.now(); save(); toast("Fortschritt gelöscht"); go("#/"); } };
   }
 
@@ -1528,6 +1624,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     const tab = { "": "start", themen: "lernen", thema: "lernen", kapitel: "lernen", lernen: "lernen", markiert: "lernen", pruefung: "pruefung", fokus: "start", eigene: "fragen", einstellungen: "mehr", neu: "mehr" }[parts[0]] || "start";
     document.querySelectorAll("#tabs a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab));
     document.body.dataset.page = parts[0] || "start";
+    if (TTS.id() && !/^#\/(lernen|markiert|pruefung\/laeuft)/.test(h)) TTS.stop();
     if (focus && h !== "#/lernen/fokus") { const f = focus; focus = null; stopFocusEffects(); S.settings.focusLog = (S.settings.focusLog || []).concat([{ d: Date.now(), m: f.min, n: f.n, r: f.right, a: f.away, early: true }]).slice(-20); S.settings._t = Date.now(); save(); }
     if (parts[0] === "themen") topicsPage();
     else if (parts[0] === "thema") topicPage(parts[1]);
@@ -1570,6 +1667,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     if (ai || /INPUT|TEXTAREA|SELECT/.test((ev.target.tagName || ""))) return;
     const h = location.hash;
     if (/^[1-6]$/.test(ev.key)) { const b = document.querySelectorAll("#app .ans:not([disabled])")[+ev.key - 1]; if (b && (h.startsWith("#/lernen") || h.startsWith("#/markiert") || h === "#/pruefung/laeuft")) { b.click(); ev.preventDefault(); } }
+    else if ((ev.key === "v" || ev.key === "V") && $("#speak")) { $("#speak").click(); ev.preventDefault(); }
     else if (ev.key === "Enter") { const b = $("#check:not([disabled])") || $("#next"); if (b) { b.click(); ev.preventDefault(); } }
     else if (h === "#/pruefung/laeuft" && (ev.key === "ArrowRight" || ev.key === "ArrowLeft")) { const b = $(ev.key === "ArrowRight" ? "#nextq" : "#prev:not([disabled])"); if (b) b.click(); }
   });

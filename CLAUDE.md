@@ -67,6 +67,9 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 ## Fokus-Runde (ab 2.7)
 - Nutzer schlief beim Lernen ein und wollte konzentrierter bleiben. `#/fokus` → `startFocus()`, Lernen unter `#/lernen/fokus`, Zustand `focus` nur im Speicher (nicht gespeichert). Weck-Hinweis nach `WAKE_MS` (60 s) ohne Eingabe. Jede andere Route beendet die Runde (`router()`).
 
+## Vorlesen (ab 2.11)
+- `TTS` (Web Speech API, nur deutsche Stimmen), Knopf `#speak` über `speakBtn()`/`bindSpeak()`, Einstellungen `S.settings.tts`. Abkürzungsliste `WORDS` im `TTS`-Modul erweitern, wenn etwas falsch ausgesprochen wird. Test: `speechSynthesis` per `Object.defineProperty` nachbauen (direkte Zuweisung greift in Chrome nicht).
+
 ## Speicher (localStorage)
 - `slapp-v1` – Fortschritt, eigene Fragen, Prüfungen, Markierungen, Einstellungen, zuletzt gesehene Version (`seenVersion`)
 - `slapp-ai` – KI-Schlüssel und Modell

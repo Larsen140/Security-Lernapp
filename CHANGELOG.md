@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.10 vom 24.11.2026
+- **Version:** 2.11 vom 24.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,12 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.11 – 24.11.2026
+- Vorlesen mit der Sprachausgabe des Geräts (`speechSynthesis`, nichts geht ins Internet): Modul `TTS` in `app.js`, Texte `sayQuestion()` / `sayResult()`, Knopf `#speak` im Lernen und in der Prüfung, Taste V
+- Einstellungen `S.settings.tts` {auto, rate, voice}, Karte „Vorlesen“ unter Mehr; nur deutsche Stimmen, sonst Hinweis zum Nachinstallieren
+- Texte werden in Sätze geteilt (Chrome bricht lange Texte ab), Abkürzungen ausgeschrieben, Emojis entfernt; Seitenwechsel stoppt, in der Fokus-Runde zählt Zuhören als wach
+
 
 ### 2.10 – 24.11.2026
 - Prüfungstermin des Nutzers 10.12.2026 als Vorgabe, wenn `S.settings.examDate` noch nicht gesetzt ist (`null` = bewusst entfernt)
