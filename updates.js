@@ -2,6 +2,12 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.6", d: "2026-11-24", items: [
+      "Der Hinweis „Lösung aus früherer KATI-Auswertung“ steht nicht mehr im Fragetext, auch nicht bei schon importierten Fragen",
+      "Beim Import wird er gleich weggelassen, ebenso ein „Lösungsvorschlag“ am Ende der Frage (der Hinweis darauf steht weiter in der Erklärung)"
+    ]
+  },
+  {
     v: "2.5", d: "2026-11-24", items: [
       "PC und Handy teilen jetzt dieselben Daten: unter Mehr → „PC und Handy verbinden“ einmal einen GitHub-Schlüssel eingeben, auf beiden Geräten",
       "Abgeglichen werden Lernstand, eigene und importierte Fragen, Markierungen, Prüfungsergebnisse, Lernserie und Einstellungen – automatisch beim Öffnen, kurz nach jeder Antwort und alle 30 Sekunden",

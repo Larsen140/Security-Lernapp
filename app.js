@@ -16,6 +16,8 @@
   // Gelöschte eigene Fragen („id“) und entfernte Markierungen („f:id“) mit Zeitpunkt,
   // damit der Abgleich zwischen Geräten sie nicht wieder zurückholt
   S.del = S.del || {};
+  // Alte Importe: Hinweis „Lösung aus früherer KATI-Auswertung“ aus den Fragetiteln entfernen
+  S.custom.forEach(c => { if (c && /KATI-Auswertung|Lösungsvorschlag\s*:?\s*$/i.test(c.q || "")) c.q = String(c.q).replace(/\s*Lösung(en)? aus (einer )?früher(er|en) KATI-Auswertung(en)?\s*:?/gi, " ").replace(/\s*(KATI-Auswertung|Lösungsvorschlag)\s*:?\s*$/i, "").replace(/\s{2,}/g, " ").trim(); });
   const forget = id => { S.del[id] = Date.now(); };
   // KI-Zugang wird getrennt gespeichert und ist NICHT im Backup enthalten
   const AIKEY = "slapp-ai";
@@ -839,6 +841,11 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
   // Zwei Formate werden erkannt:
   // 1) Ankreuzfragen: „1. Frage“, darunter „A) Antwort“, richtige mit ✅ / ✔ / ✓ / [x] / „Richtig ·“ / (richtig)
   // 2) Nur Lösungen: „1. Frage“, darunter die richtigen Antworten als Aufzählung (• oder -), ohne falsche Antworten
+  // Hinweise wie „Lösung aus früherer KATI-Auswertung“ gehören nicht in den Fragetext
+  // (in PDFs landen sie oft in derselben Zeile wie das Ende der Frage)
+  const TAILVOR = /\s*Lösungsvorschlag\s*:?\s*$/i;
+  const cleanQ = q => String(q || "").replace(/\s*Lösung(en)? aus (einer )?früher(er|en) KATI-Auswertung(en)?\s*:?/gi, " ")
+    .replace(/\s*(KATI-Auswertung|Lösungsvorschlag)\s*:?\s*$/i, "").replace(/\s{2,}/g, " ").trim();
   function parseImport(txt) {
     const out = []; let cur = null, last = null;
     const MARK = /^\s*(✅|✔️?|☑️?|✓|\[x\]|\(x\)|Richtig\s*[·:-]|Lösungsvorschlag\s*[·:-])\s*/i;
@@ -863,6 +870,10 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
       if (qm && (!cur || cur.a.length || qm[1] === "1")) { cur = { q: qm[2].trim(), a: [], c: [] }; out.push(cur); last = "q"; return; }
       if (!cur) return;
       if (last === "a") cur.a[cur.a.length - 1] += " " + line; else if (last === "q") cur.q += " " + line;
+    });
+    out.forEach(x => {
+      if (TAILVOR.test(x.q)) x.label = "Lösungsvorschlag";
+      x.q = cleanQ(x.q);
     });
     return out.filter(x => x.q && x.c.length && (x.sol || x.a.length >= 2));
   }
