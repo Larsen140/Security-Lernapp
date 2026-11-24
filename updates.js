@@ -2,6 +2,13 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.8", d: "2026-11-24", items: [
+      "Neu auf der Startseite: „Heute am meisten wert“ zeigt das Sachgebiet, in dem dir für die Prüfung die meisten Punkte fehlen, mit einem Tipp direkt zum Üben",
+      "Ist PC und Handy verbunden, steht unten auf der Startseite, wann zuletzt abgeglichen wurde (oder was nicht klappt)",
+      "Am PC stehen Fokus-Runde und Prüfung nebeneinander"
+    ]
+  },
+  {
     v: "2.7", d: "2026-11-24", items: [
       "Neu: Fokus-Runde auf der Startseite. 15, 25 oder 45 Minuten nur Fragen, ohne Menü, die Zeit läuft oben mit",
       "Gegen Müdigkeit: Tippst du eine Minute lang nichts, klingelt die App, vibriert und gibt dir eine kurze Aufgabe zum Wachwerden (z. B. 10 Kniebeugen oder kaltes Wasser)",

@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.7 vom 24.11.2026
+- **Version:** 2.8 vom 24.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,12 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.8 – 24.11.2026
+- `tipCard()`: Empfehlung nach fehlenden Prüfungspunkten je Sachgebiet ((1 − Lernstand) × `examCount`), führt zu `#/lernen/t-…`
+- `syncLine()`: Stand oder Fehler des Abgleichs auf der Startseite
+- Prüfung der Seiten bei 320, 390, 1024 und 1440 px, hell und dunkel: keine Fehler, nichts zu breit
+
 
 ### 2.7 – 24.11.2026
 - Fokus-Runde `#/fokus` (Einstellung `S.settings.focus` {min, noise}, Verlauf `S.settings.focusLog`): Lernen im Modus `#/lernen/fokus` ohne Ende (immer neue 20er-Runden aus `pickSmart`), Zeitpille `#fpill` in der Kopfzeile, `body.focus` blendet Navigation aus (auch die Seitenleiste am PC)

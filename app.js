@@ -187,6 +187,7 @@
       ${onlyOwn() ? `<div class="last">Fragen: nur deine eigenen (${S.custom.length}) · <a href="#/einstellungen" style="color:#FFCC5C">ändern</a></div>` : ""}</div>
       <div class="card daily"><div class="flame ${st ? "on" : ""}">🔥<b>${st}</b></div><div class="dinfo"><b>${st ? st + (st === 1 ? " Tag" : " Tage") + " in Folge" : "Starte deine Lernserie"}</b>
         <span class="muted">${td >= goal ? "Tagesziel geschafft ✅ " + td + " Fragen heute" : "Heute " + td + " von " + goal + " Fragen"}</span><div class="dbar"><i style="width:${gpct}%"></i></div></div></div>
+      ${tipCard()}
       <button class="btn big" data-go="#/lernen/mix">▶ Weiterlernen<small>${c.rot ? "Fehler und neue Fragen zuerst" : "Neue und unsichere Fragen zuerst"}</small></button>
       <div class="grid2">
         <button class="tile" data-go="#/lernen/fehler"><span class="big">🔁</span><b>Fehler wiederholen</b><span class="muted">${wrong} ${wrong === 1 ? "Frage" : "Fragen"}</span></button>
@@ -196,6 +197,7 @@
       </div>
       <button class="card examcard focuscard" data-go="#/fokus"><span class="big">🎯</span><span class="einfo"><b>Fokus-Runde</b><span class="muted">${(S.settings.focus || {}).min || 25} Min. konzentriert lernen, danach Pause</span></span><span class="chev">›</span></button>
       <button class="card examcard" data-go="#/pruefung"><span class="big">📝</span><span class="einfo"><b>Prüfung simulieren</b><span class="muted">${examSize()} Fragen · 120 Min.${lastExam ? ` · zuletzt <b class="${lastExam.pass ? "pass" : "fail"}">${lastExam.pct} %</b>` : ""}</span></span><span class="chev">›</span></button>
+      ${syncLine()}
       ${VERSION ? `<button class="version" data-go="#/neu">Version ${esc(VERSION)} · Stand ${fmtDate(UPDATES[0].d)} · Was ist neu?</button>` : ""}`;
     $("#app").innerHTML = html; foot("");
     // Absperrband füllt sich, Prozentzahl zählt hoch
@@ -211,6 +213,28 @@
       if (!first) toast("Update auf Version " + VERSION + " – Neuerungen unter Mehr → Was ist neu?");
     }
     $("#aihome").onclick = () => openAI(null);
+  }
+
+  // Empfehlung: das Sachgebiet, in dem die meisten Prüfungspunkte noch fehlen (Anteil unsicher × Fragen in der Prüfung)
+  function tipCard() {
+    let best = null;
+    TOPICS.forEach(t => {
+      const list = questionsOf(t.id); if (!list.length) return;
+      const c = counts(list), m = (c.gruen + c.gelb / 2) / c.total, gap = (1 - m) * t.examCount;
+      if (!best || gap > best.gap) best = { t, m, gap, c };
+    });
+    if (!best || best.gap < 0.5) return "";
+    const pct = Math.round(best.m * 100), t = best.t;
+    const why = best.c.rot ? best.c.rot + (best.c.rot === 1 ? " Fehler" : " Fehler") + " offen" : pct ? "erst " + pct + " % sicher" : "noch nicht angefangen";
+    return `<button class="tipcard" data-go="#/lernen/t-${t.id}"><span class="tico">${t.icon}</span><span class="tinf"><small>💡 Heute am meisten wert</small><b>${esc(t.short)} üben</b><span>${t.examCount} Fragen in der Prüfung · ${why}</span></span><span class="chev">›</span></button>`;
+  }
+  // Kleine Zeile auf der Startseite, ob der Abgleich klappt
+  function syncLine() {
+    const c = syncConf(); if (!c.token) return "";
+    if (syncErr) return `<button class="syncline bad" data-go="#/einstellungen">⚠️ Abgleich: ${esc(syncErr)}</button>`;
+    if (!c.last) return "";
+    const min = Math.round((Date.now() - c.last) / 60000);
+    return `<button class="syncline" data-go="#/einstellungen">☁️ PC und Handy abgeglichen ${min < 1 ? "gerade eben" : "vor " + min + " Min."}</button>`;
   }
 
   // ---------- Lernen: alle Sachgebiete ----------
