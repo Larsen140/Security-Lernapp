@@ -2,6 +2,13 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.10", d: "2026-11-24", items: [
+      "Dein Prüfungstermin 10.12.2026 ist eingetragen (änderbar unter Mehr → Lernen)",
+      "Das Tagesziel stellst du nicht mehr selbst ein: Die App rechnet es aus dem Prüfungstermin aus. Alle Fragen, die noch nicht sicher sitzen, werden auf die verbleibenden Tage verteilt",
+      "Das Ziel wird einmal am Tag festgelegt und bleibt dann bis Mitternacht gleich. Lernst du viel, wird es an den nächsten Tagen kleiner"
+    ]
+  },
+  {
     v: "2.9", d: "2026-11-24", items: [
       "Falsch beantwortete Fragen kommen in derselben Runde nach drei anderen Fragen noch einmal dran (mit „🔁 nochmal“ und neu gemischten Antworten). So bleibt die richtige Lösung besser hängen",
       "Neu unter Mehr → Lernen: dein Prüfungstermin. Die Startseite zeigt dann, wie viele Tage noch bleiben und wie viele Fragen du pro Tag schaffen solltest",

@@ -47,7 +47,8 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 
 ## Aufbau (ab 2.0)
 - Untere Navigation `#tabs` (Start `#/`, Lernen `#/themen`, Prüfung `#/pruefung`, Fragen `#/eigene`, Mehr `#/einstellungen`); `foot()` mit Inhalt blendet sie aus (`body.has-foot`).
-- Töne: `SFX` in `app.js` (Web Audio, keine Dateien), Einstellung `S.settings.sound`. Tagesziel `S.settings.goal`, Lerntage `S.days` (für Serie).
+- Töne: `SFX` in `app.js` (Web Audio, keine Dateien), Einstellung `S.settings.sound`. Lerntage `S.days` (für Serie).
+- Tagesziel (ab 2.10) kommt aus dem Prüfungstermin `S.settings.examDate` (Nutzer: 10.12.2026) über `dailyGoal()`; der Nutzer wollte kein selbst gewähltes Tagesziel mehr. Ohne Termin Rückfall auf `S.settings.goal`.
 - Laufende Prüfung in `localStorage` `slapp-exam` (IDs statt Fragen, `qAny()` stellt sie wieder her).
 
 ## Zoom

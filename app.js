@@ -12,6 +12,8 @@
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} syncSoon(); }
   S.settings = Object.assign({ showCount: true, sound: true, goal: 20 }, S.settings || {});
+  // Prüfungstermin des Nutzers (10.12.2026), solange auf dem Gerät noch keiner eingetragen ist
+  if (S.settings.examDate === undefined) S.settings.examDate = "2026-12-10";
   S.days = S.days || {};
   // Gelöschte eigene Fragen („id“) und entfernte Markierungen („f:id“) mit Zeitpunkt,
   // damit der Abgleich zwischen Geräten sie nicht wieder zurückholt
@@ -55,6 +57,18 @@
   // Lerntage: wie viele Fragen pro Tag beantwortet wurden (für Serie und Tagesziel)
   const dayKey = (d = new Date()) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   const today = () => S.days[dayKey()] || 0;
+  // Tagesziel: Mit Prüfungstermin ergibt es sich aus den noch nicht sicheren Fragen (je 2× richtig nötig)
+  // geteilt durch die verbleibenden Tage. Es wird einmal pro Tag festgelegt, damit es nicht beim Lernen schrumpft.
+  const daysLeft = () => { const d = S.settings.examDate; if (!d) return null; const n = Math.round((new Date(d + "T00:00:00") - new Date(dayKey() + "T00:00:00")) / 864e5); return n > 0 ? n : null; };
+  function dailyGoal() {
+    const left = daysLeft(); if (!left) return S.settings.goal || 20;
+    const k = dayKey(); let g = null; try { g = JSON.parse(localStorage.getItem("slapp-goal")); } catch (e) {}
+    if (g && g.day === k && g.d === S.settings.examDate) return g.n;
+    const all = allQuestions(), open = all.filter(q => status(q) !== 3).length;
+    const n = Math.max(10, Math.ceil(open * 2 / left) + today());
+    try { localStorage.setItem("slapp-goal", JSON.stringify({ day: k, d: S.settings.examDate, n })); } catch (e) {}
+    return n;
+  }
   function deviceId() {
     let id = null; try { id = localStorage.getItem("slapp-dev"); } catch (e) {}
     if (!id) { id = "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); try { localStorage.setItem("slapp-dev", id); } catch (e) {} }
@@ -179,7 +193,7 @@
     const wrong = all.filter(q => status(q) === 1).length;
     const lastExam = S.exams[S.exams.length - 1];
     const run = exam && !exam.done ? exam : null;
-    const st = streak(), td = today(), goal = S.settings.goal || 20, gpct = Math.min(100, td / goal * 100);
+    const st = streak(), td = today(), goal = dailyGoal(), gpct = Math.min(100, td / goal * 100);
     let html = `${run ? `<button class="resume" data-go="#/pruefung/laeuft"><b>📝 Prüfung läuft</b><span>Frage ${run.i + 1} von ${run.list.length} · noch ${Math.max(0, Math.ceil((run.end - Date.now()) / 60000))} Min. · Weiter ▶</span></button>` : ""}
       <div class="badge"><div class="tape"><i id="tape" data-w="${pctSafe}"></i><i id="tape2" class="half" data-l="${pctSafe}" data-w="${pctHalf}"></i></div>
       <div class="top"><div class="title">Sachkunde § 34a GewO<b>Dein Lernstand</b></div><div class="pct"><span id="pctnum" data-to="${pct}" data-dec="${pct > 0 && pct < 10 ? 1 : 0}">0</span><small>%</small></div></div>
@@ -236,9 +250,8 @@
     if (days < 0) return "";
     if (days === 0) return `<div class="cdown today"><span class="cdn">🍀</span><span><b>Heute ist Prüfung!</b>Ruhig bleiben, jede Frage genau lesen. Viel Erfolg!</span></div>`;
     const c = counts(allQuestions()), open = c.total - c.gruen;
-    const per = Math.ceil(open * 2 / days); // jede noch nicht sichere Frage braucht etwa zwei richtige Antworten
-    const goal = S.settings.goal || 20;
-    return `<div class="cdown"><span class="cdn"><b>${days}</b>${days === 1 ? "Tag" : "Tage"}</span><span><b>bis zur Prüfung am ${fmtDate(d)}</b>${open ? `Noch ${open} Fragen nicht sicher · etwa <b class="${per > goal ? "fail" : "pass"}">${per} Fragen pro Tag</b>${per > goal ? ` (dein Ziel: ${goal})` : ""}` : "Alle Fragen sitzen – jetzt nur noch wiederholen 💪"}</span></div>`;
+    const per = dailyGoal();
+    return `<div class="cdown"><span class="cdn"><b>${days}</b>${days === 1 ? "Tag" : "Tage"}</span><span><b>bis zur Prüfung am ${fmtDate(d)}</b>${open ? `Noch ${open} Fragen nicht sicher · Tagesziel heute: <b>${per} Fragen</b>` : "Alle Fragen sitzen – jetzt nur noch wiederholen 💪"}</span></div>`;
   }
   // Kleine Zeile auf der Startseite, ob der Abgleich klappt
   function syncLine() {
@@ -387,7 +400,7 @@
   function points(q, sel) { const good = sel.filter(a => q.c.includes(a)).length, bad = sel.length - good; return Math.max(0, good - bad); }
   function learnDone() {
     const s = session, n = s.list.length, pct = Math.round(s.right / n * 100), R = 52, C = 2 * Math.PI * R;
-    const goal = S.settings.goal || 20;
+    const goal = dailyGoal();
     const head = pct === 100 ? "Fehlerfrei! 🏆" : pct >= 80 ? "Stark, weiter so!" : pct >= 50 ? "Gut gemacht!" : "Dranbleiben!";
     const sub = pct >= 80 ? "Du bist auf einem sehr guten Weg zur Prüfung." : pct >= 50 ? "Die falschen Fragen kommen bald wieder dran." : "Lies das Lernkapitel noch einmal und übe die Fehler.";
     $("#app").innerHTML = `<div class="card donecard">
@@ -1246,11 +1259,11 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     setHeader("Einstellungen", null);
     const conf = aiConf();
     $("#app").innerHTML = `<div class="card"><h2>🎯 Lernen</h2>
-      <label>Tagesziel</label><select id="goal">${[10, 20, 30, 50, 80].map(n => `<option value="${n}" ${(S.settings.goal || 20) === n ? "selected" : ""}>${n} Fragen pro Tag</option>`).join("")}</select>
+      <label>📅 Mein Prüfungstermin</label><input type="date" id="exdate" value="${esc(S.settings.examDate || "")}" min="${dayKey()}">
+      <p class="muted">Dein Tagesziel rechnet die App daraus aus: alle Fragen, die noch nicht sicher sitzen, verteilt auf die Tage bis zur Prüfung. ${daysLeft() ? `Heute sind das <b>${dailyGoal()} Fragen</b>.` : ""}</p>
       <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="sound" style="width:22px;height:22px;margin:0" ${S.settings.sound !== false ? "checked" : ""}> Töne bei richtigen und falschen Antworten</label>
       <p class="muted">Die Töne sind leise und laufen über die Medienlautstärke deines Handys.</p>
-      <label>📅 Mein Prüfungstermin</label><input type="date" id="exdate" value="${esc(S.settings.examDate || "")}" min="${dayKey()}">
-      <p class="muted">Die Startseite zeigt dann, wie viele Tage noch bleiben und wie viele Fragen du pro Tag schaffen solltest.</p></div>
+</div>
       <div class="card"><h2>🔢 Anzeige</h2>
       <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="showc" style="width:22px;height:22px;margin:0" ${S.settings.showCount ? "checked" : ""}> Anzahl der richtigen Antworten bei jeder Frage anzeigen</label>
       <p class="muted">In der echten IHK-Prüfung wird das nicht angezeigt. Schalte es zum Üben ein und für eine realistische Prüfung aus.</p></div>
@@ -1274,8 +1287,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     foot("");
     $("#showc").onchange = ev => { S.settings.showCount = ev.target.checked; S.settings._t = Date.now(); save(); toast("Gespeichert"); };
     $("#sound").onchange = ev => { S.settings.sound = ev.target.checked; S.settings._t = Date.now(); save(); if (ev.target.checked) SFX.ok(); toast(ev.target.checked ? "Töne an" : "Töne aus"); };
-    $("#exdate").onchange = ev => { S.settings.examDate = ev.target.value || null; S.settings._t = Date.now(); save(); toast(ev.target.value ? "Prüfungstermin: " + fmtDate(ev.target.value) : "Prüfungstermin entfernt"); };
-    $("#goal").onchange = ev => { S.settings.goal = +ev.target.value; S.settings._t = Date.now(); save(); toast("Tagesziel: " + ev.target.value + " Fragen"); };
+    $("#exdate").onchange = ev => { S.settings.examDate = ev.target.value || null; S.settings._t = Date.now(); save(); toast(ev.target.value ? "Prüfungstermin: " + fmtDate(ev.target.value) : "Prüfungstermin entfernt"); settingsPage(); };
     $("#onlyown").onchange = ev => { S.settings.onlyOwn = ev.target.checked; S.settings._t = Date.now(); save(); toast(ev.target.checked ? "Nur noch deine eigenen Fragen" : "Alle Fragen aktiv"); };
     const del = $("#aidel"); if (del) del.onclick = () => { aiSave({}); settingsPage(); toast("Schlüssel entfernt"); };
     const logTo = el => line => { el.innerHTML += esc(line) + "<br>"; };
