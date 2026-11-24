@@ -398,8 +398,12 @@
       if (!actx) actx = new A(); if (actx.state === "suspended") actx.resume().catch(() => {});
       return actx;
     }
-    async function ttsModels(ai) {
-      if (ai.ttsModels && ai.ttsAt > Date.now() - 7 * 864e5) return ai.ttsModels;
+    let modelsJob = null;
+    function ttsModels(ai) {
+      if (ai.ttsModels && ai.ttsAt > Date.now() - 7 * 864e5) return Promise.resolve(ai.ttsModels);
+      return modelsJob || (modelsJob = loadTtsModels(ai).finally(() => { modelsJob = null; }));
+    }
+    async function loadTtsModels(ai) {
       let list = [];
       try {
         const r = await gemFetch(GEM + "models?pageSize=1000", {}, ai.key, ai.way || "query", 15000), d = await r.json();
@@ -413,9 +417,14 @@
     const pace = () => { const r = +conf().rate || 1; return r < 0.95 ? "langsam und sehr deutlich" : r > 1.2 ? "zügig, aber deutlich" : r > 1.05 ? "in normalem Tempo, deutlich" : "ruhig und deutlich"; };
     async function geminiAudio(text) {
       const c = conf(), ai = aiConf(), vname = String(c.voice).startsWith("gemini:") ? c.voice.slice(7) : "Kore";
-      const key = vname + "|" + pace() + "|" + text; if (cache.has(key)) return cache.get(key);
+      const key = vname + "|" + text; if (cache.has(key)) return cache.get(key);
+      const job = fetchAudio(text, vname, ai); cache.set(key, job); if (cache.size > 40) cache.delete(cache.keys().next().value);
+      job.catch(() => cache.delete(key));
+      return job;
+    }
+    async function fetchAudio(text, vname, ai) {
       const mk = withLang => JSON.stringify({
-        contents: [{ parts: [{ text: "Du bist ein deutscher Ausbilder aus Deutschland. Sprich akzentfreies Hochdeutsch, " + pace() + ", mit natürlichen kurzen Pausen zwischen den Sätzen. Lies nur den folgenden Text vor:\n\n" + text }] }],
+        contents: [{ parts: [{ text }] }], // nur der Text: Anweisungen davor liest das Modell sonst mit vor
         generationConfig: { responseModalities: ["AUDIO"], speechConfig: Object.assign(withLang ? { languageCode: "de-DE" } : {}, { voiceConfig: { prebuiltVoiceConfig: { voiceName: vname } } }) }
       });
       let body = mk(!ai.ttsNoLang);
@@ -433,23 +442,35 @@
           const bin = parts.map(p => atob(p.inlineData.data)).join(""), n = bin.length >> 1, pcm = new Float32Array(n);
           for (let i = 0; i < n; i++) { let v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); if (v >= 32768) v -= 65536; pcm[i] = v / 32768; }
           const out = { pcm, rate, who: "Google " + vname + " (" + model.replace(/^models\//, "") + ", " + rate + " Hz)" };
-          cache.set(key, out); if (cache.size > 40) cache.delete(cache.keys().next().value);
           return out;
         } catch (e) { last = e.status ? e : (e.message ? e : netError(e)); if (!/429|überlast|Limit|quota/i.test(last.message || "")) break; }
       }
       throw last || new Error("Natürliche Stimme nicht erreichbar");
     }
-    function stopAudio() { if (src) { try { src.onended = null; src.stop(); } catch (e) {} src = null; } }
+    function stopAudio() { if (src) { try { src.stop(); } catch (e) {} src = null; } }
+    const segs = list => list.length > 1 ? [list[0], list.slice(1).join(" ")] : list;
+    function prefetch(parts) {
+      if (!useGemini()) return;
+      segs([].concat(parts).map(clean).filter(Boolean)).forEach(t => geminiAudio(t).catch(() => {}));
+    }
     async function speakGemini(list, my, report) {
       const ctx = audioCtx(); // im Tipp-Ereignis anlegen, sonst sperrt das iPhone den Ton
+      const jobs = segs(list).map(t => geminiAudio(t)); // beide Teile gleichzeitig anfordern
+      jobs.forEach(j => j.catch(() => {}));
       try {
-        const a = await geminiAudio(list.join(" "));
-        if (my !== token) return;
-        const ctx2 = ctx || audioCtx(); if (!ctx2) throw new Error("Kein Audio");
-        const buf = ctx2.createBuffer(1, a.pcm.length, a.rate); buf.getChannelData(0).set(a.pcm);
-        src = ctx2.createBufferSource(); src.buffer = buf; src.connect(ctx2.destination); lastWho = a.who;
-        src.onended = () => { if (my === token) { src = null; busyId = null; mark(); } };
-        src.start(); started = true; mark(); if (report) report(true, "");
+        for (let k = 0; k < jobs.length; k++) {
+          const a = await jobs[k];
+          if (my !== token) return;
+          const ctx2 = ctx || audioCtx(); if (!ctx2) throw new Error("Kein Audio");
+          const buf = ctx2.createBuffer(1, a.pcm.length, a.rate); buf.getChannelData(0).set(a.pcm);
+          await new Promise(res => {
+            src = ctx2.createBufferSource(); src.buffer = buf; src.connect(ctx2.destination); lastWho = a.who;
+            src.onended = () => res();
+            src.start(); started = true; mark(); if (report && k === 0) report(true, "");
+          });
+          if (my !== token) return;
+        }
+        src = null; busyId = null; mark();
       } catch (e) {
         if (my !== token) return;
         lastWho = "Handy, weil Google nicht ging: " + (e.message || "Fehler");
@@ -458,8 +479,9 @@
       }
     }
     let lastErr = "";
+    let lastUse = 0;
     function speak(parts, id, report) {
-      lastWho = "";
+      lastWho = ""; lastUse = Date.now();
       if (!has && !aiConf().key) { toast("Dein Browser kann leider nicht vorlesen"); return; }
       if (useGemini()) {
         stop(); const my = token, list = []; [].concat(parts).forEach(p => list.push(clean(p)));
@@ -502,7 +524,7 @@
     function hint() {
       toast(apple ? "Kein Ton? Stummschalter am iPhone aus (kein Orange sichtbar) und Lautstärke hoch" : "Kein Ton? Lautstärke prüfen – unter Mehr → Vorlesen eine andere Stimme wählen");
     }
-    return { has, apple, speak, stop, mark, GVOICES, useGemini, who: () => lastWho, resetWho: () => { lastWho = ""; }, voices: () => (load(), voices), busy: () => !!busyId && (!!src || (has && speechSynthesis.speaking)), conf, id: () => busyId };
+    return { has, apple, speak, stop, mark, GVOICES, useGemini, prefetch, used: () => Date.now() - lastUse < 15 * 60000, who: () => lastWho, resetWho: () => { lastWho = ""; }, voices: () => (load(), voices), busy: () => !!busyId && (!!src || (has && speechSynthesis.speaking)), conf, id: () => busyId };
   })();
   // Text zum Vorlesen: Frage mit Antworten in der angezeigten Reihenfolge
   function sayQuestion(q, order) {
@@ -525,7 +547,7 @@
     return `<div class="card" id="ttscard"><h2>🔊 Vorlesen</h2>
       <p class="muted">Mit 🔊 bei jeder Frage liest die App Frage und Antworten vor, nach dem Prüfen auch die Lösung mit Erklärung. Am PC geht es auch mit der Taste V.</p>
       <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="ttsauto" style="width:22px;height:22px;margin:0" ${c.auto ? "checked" : ""}> Jede Frage automatisch vorlesen</label>
-      <label>Tempo</label><select id="ttsrate">${[[0.8, "Langsam"], [1, "Normal"], [1.15, "Etwas schneller"], [1.3, "Schnell"]].map(([v, n]) => `<option value="${v}" ${+c.rate === v ? "selected" : ""}>${n}</option>`).join("")}</select>
+      <label>Tempo${TTS.useGemini() ? " (nur für die Gerätestimme)" : ""}</label><select id="ttsrate">${[[0.8, "Langsam"], [1, "Normal"], [1.15, "Etwas schneller"], [1.3, "Schnell"]].map(([v, n]) => `<option value="${v}" ${+c.rate === v ? "selected" : ""}>${n}</option>`).join("")}</select>
       <label>Stimme</label><select id="ttsvoice">
         <option value="">Automatisch (${aiConf().key ? "natürliche Stimme" : "beste Gerätestimme"})</option>
         ${aiConf().key ? `<optgroup label="✨ Natürlich (über Google Gemini, wie ein Mensch)">${TTS.GVOICES.map(([v, n]) => `<option value="gemini:${v}" ${c.voice === "gemini:" + v ? "selected" : ""}>${n}</option>`).join("")}</optgroup>` : ""}
@@ -591,6 +613,7 @@
     const sayKey = "l" + s.i + (s.checked ? "c" : "q") + q.id;
     bindSpeak(sayKey, () => s.checked ? sayResult(q, s.order, s.sel) : sayQuestion(q, s.order));
     if (TTS.conf().auto && s.said !== sayKey) { s.said = sayKey; TTS.speak(s.checked ? sayResult(q, s.order, s.sel) : sayQuestion(q, s.order), sayKey); }
+    else if (TTS.used() && s.pre !== sayKey) { s.pre = sayKey; TTS.prefetch(s.checked ? sayResult(q, s.order, s.sel) : sayQuestion(q, s.order)); } // wer gerade zuhört, bekommt die nächste Ansage sofort
     else if (TTS.id() && TTS.id()[0] === "l" && TTS.id() !== sayKey) TTS.stop();
     document.querySelectorAll(".ans").forEach(b => b.onclick = () => {
       const a = +b.dataset.a; const i = s.sel.indexOf(a);
@@ -852,6 +875,7 @@
     const sayKey = "e" + e.i;
     bindSpeak(sayKey, () => sayQuestion(q, e.order[e.i]));
     if (TTS.conf().auto && e.said !== sayKey) { e.said = sayKey; TTS.speak(sayQuestion(q, e.order[e.i]), sayKey); }
+    else if (TTS.used() && e.pre !== sayKey) { e.pre = sayKey; TTS.prefetch(sayQuestion(q, e.order[e.i])); }
     else if (TTS.id() && TTS.id()[0] === "e" && TTS.id() !== sayKey) TTS.stop();
     document.querySelectorAll(".ans").forEach(b => b.onclick = () => {
       const a = +b.dataset.a, arr = e.ans[e.i], i = arr.indexOf(a);

@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.14 vom 24.11.2026
+- **Version:** 2.15 vom 24.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,11 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.15 – 24.11.2026
+- Gemini-TTS las die Stil-Anweisung mit vor: jetzt nur noch der reine Text (+ `languageCode`). Tempo-Einstellung gilt nur für die Gerätestimme
+- Ladezeit: Text in zwei Teile (Frage / Antworten bzw. Ergebnis / Erklärung), beide parallel angefordert, Wiedergabe nacheinander; Zwischenspeicher hält Promises (`geminiAudio` teilt laufende Anfragen); `TTS.prefetch()` lädt die nächste Ansage vorab, wenn in den letzten 15 Min. vorgelesen wurde (`TTS.used()`)
+
 
 ### 2.14 – 24.11.2026
 - Nutzer: Stimme klingt nach Roboter, zu schnell, Akzent, stockt. Gemini-TTS: `speechConfig.languageCode = "de-DE"` (bei 400 ohne, gemerkt als `ttsNoLang`), Anweisung „akzentfreies Hochdeutsch“, Tempo per Anweisung (`pace()`) statt `playbackRate` (verstellte die Tonhöhe), mehrere Audio-Teile werden zusammengesetzt

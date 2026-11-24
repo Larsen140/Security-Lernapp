@@ -2,6 +2,13 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.15", d: "2026-11-24", items: [
+      "Der fremde Satz am Anfang ist weg: Die Stimme liest jetzt nur noch Frage und Antworten vor",
+      "Schneller: Die Frage wird zuerst geladen und gesprochen, die Antworten laden gleichzeitig nach",
+      "Sobald du einmal 🔊 benutzt hast, lädt die App die nächste Ansage schon im Voraus (Lösung nach dem Prüfen, nächste Frage). Dann spricht sie fast sofort los"
+    ]
+  },
+  {
     v: "2.14", d: "2026-11-24", items: [
       "Natürliche Stimme verbessert: Google bekommt jetzt ausdrücklich Deutsch vorgegeben und soll akzentfrei, ruhig und deutlich sprechen",
       "Das Tempo wird nicht mehr durch schnelleres Abspielen verstellt (das klang nach Roboter), sondern Google spricht selbst langsamer oder zügiger",
