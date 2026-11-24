@@ -2,6 +2,14 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.13", d: "2026-11-24", items: [
+      "Neu: natürliche Stimme zum Vorlesen. Mit deinem Gemini-Schlüssel liest jetzt eine Stimme von Google vor, die wie ein Mensch klingt (Standard, wenn ein Schlüssel eingetragen ist)",
+      "Vier Stimmen zur Auswahl unter Mehr → Vorlesen: Kore, Charon, Aoede und Puck. Das Laden dauert 2–5 Sekunden, der Knopf zeigt solange ⏳",
+      "Ist das Tageslimit bei Google erreicht oder kein Internet da, liest automatisch die Stimme des Handys",
+      "Die schwer verständlichen Roboter- und Spaßstimmen des iPhones (z. B. Eddy, Grandma, Shelley) werden nicht mehr verwendet und nicht mehr angeboten"
+    ]
+  },
+  {
     v: "2.12", d: "2026-11-24", items: [
       "Vorlesen am iPhone repariert: Die App nimmt jetzt die deutsche Systemstimme statt einer „Erweitert“-Stimme, die evtl. nicht geladen ist und stumm bleibt",
       "Safari blieb stumm, wenn direkt nach dem Abbrechen neu gesprochen wurde – das ist behoben, die Sprachausgabe wird außerdem beim ersten Tippen freigeschaltet",

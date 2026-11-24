@@ -68,7 +68,8 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 - Nutzer schlief beim Lernen ein und wollte konzentrierter bleiben. `#/fokus` → `startFocus()`, Lernen unter `#/lernen/fokus`, Zustand `focus` nur im Speicher (nicht gespeichert). Weck-Hinweis nach `WAKE_MS` (60 s) ohne Eingabe. Jede andere Route beendet die Runde (`router()`).
 
 ## Vorlesen (ab 2.11)
-- `TTS` (Web Speech API, nur deutsche Stimmen), Knopf `#speak` über `speakBtn()`/`bindSpeak()`, Einstellungen `S.settings.tts`. Abkürzungsliste `WORDS` im `TTS`-Modul erweitern, wenn etwas falsch ausgesprochen wird. Test: `speechSynthesis` per `Object.defineProperty` nachbauen (direkte Zuweisung greift in Chrome nicht).
+- Natürliche Stimme (ab 2.13): Gemini-TTS mit dem AQ-Schlüssel (`geminiAudio()`), Standard wenn ein Schlüssel da ist; sonst/bei Fehler Gerätestimme. Nutzer fand die iPhone-Stimme unverständlich.
+- `TTS` (Web Speech API, nur deutsche Stimmen, Roboterstimmen gefiltert), Knopf `#speak` über `speakBtn()`/`bindSpeak()`, Einstellungen `S.settings.tts`. Abkürzungsliste `WORDS` im `TTS`-Modul erweitern, wenn etwas falsch ausgesprochen wird. Test: `speechSynthesis` per `Object.defineProperty` nachbauen (direkte Zuweisung greift in Chrome nicht).
 
 ## Speicher (localStorage)
 - `slapp-v1` – Fortschritt, eigene Fragen, Prüfungen, Markierungen, Einstellungen, zuletzt gesehene Version (`seenVersion`)

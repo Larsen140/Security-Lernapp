@@ -340,16 +340,20 @@
   const TTS = (() => {
     const has = typeof window.speechSynthesis !== "undefined" && typeof window.SpeechSynthesisUtterance !== "undefined";
     let voices = [], token = 0, busyId = null;
-    const load = () => { try { voices = speechSynthesis.getVoices().filter(v => /^de([-_]|$)/i.test(v.lang)); } catch (e) { voices = []; } };
+    // Roboter- und Spaßstimmen (Apple „Eloquence“ u. a.) sind kaum zu verstehen und fliegen raus
+    const BAD = /Eddy|Flo\b|Grandma|Grandpa|Oma|Opa|Reed|Rocko|Sandy|Shelley|Bahh|Bells|Boing|Bubbles|Cellos|Wobble|Zarvox|Trinoids|Whisper|Jester|Organ|Superstar|Albert|Bad News|Good News|Fred|Junior|Kathy|Ralph|eSpeak/i;
+    const GOOD = ["Anna", "Helena", "Petra", "Markus", "Yannick", "Martin", "Viktor", "Katja", "Conrad", "Amala", "Florian", "Hedda", "Stefan", "Google Deutsch"];
+    const rank = v => { const i = GOOD.findIndex(g => v.name.startsWith(g)); return (i < 0 ? 50 : i) + (/natural|online|neural/i.test(v.name) ? -100 : 0); };
+    const load = () => { try { voices = speechSynthesis.getVoices().filter(v => /^de([-_]|$)/i.test(v.lang) && !BAD.test(v.name)).sort((a, b) => rank(a) - rank(b)); } catch (e) { voices = []; } };
     if (has) { load(); try { speechSynthesis.addEventListener("voiceschanged", load); } catch (e) { speechSynthesis.onvoiceschanged = load; } }
     const conf = () => Object.assign({ auto: false, rate: 1, voice: "" }, S.settings.tts);
     const apple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && "ontouchend" in document || /iPhone|iPad|iPod/.test(navigator.userAgent);
     function voice() {
       const c = conf(); if (!voices.length) load();
       const chosen = voices.find(v => v.voiceURI === c.voice); if (chosen) return chosen;
-      // iPhone/iPad: keine Stimme fest vorgeben. Dort stehen auch nicht geladene „Erweitert“-Stimmen in der Liste,
-      // die dann stumm bleiben; mit lang = de-DE nimmt iOS die eingestellte deutsche Systemstimme.
-      if (apple) return null;
+      // iPhone/iPad: „Erweitert“-Stimmen stehen in der Liste, auch wenn sie nicht geladen sind (dann stumm).
+      // Darum automatisch nur die normale Anna oder eine andere gute Grundstimme nehmen.
+      if (apple) return voices.find(v => !/erweitert|enhanced|premium/i.test(v.name) && rank(v) < 50) || null;
       return voices.find(v => v.voiceURI === c.voice)
         || voices.find(v => /natural|online|premium|enhanced|neural/i.test(v.name))
         || voices.find(v => /google/i.test(v.name))
@@ -375,7 +379,7 @@
       return out;
     }
     // Nur abbrechen, wenn wirklich etwas läuft: Safari verschluckt ein speak() direkt nach cancel()
-    function stop() { token++; busyId = null; if (has) try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch (e) {} mark(); }
+    function stop() { token++; busyId = null; stopAudio(); if (has) try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch (e) {} mark(); }
     let started = false, unlocked = false;
     // iOS gibt Sprache erst nach einer Berührung frei: beim ersten Tippen einmal still „sprechen“
     function unlock() {
@@ -383,14 +387,92 @@
       try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; u.lang = "de-DE"; speechSynthesis.speak(u); } catch (e) {}
     }
     if (has) ["pointerdown", "touchend", "keydown"].forEach(ev => document.addEventListener(ev, unlock, { once: true, passive: true }));
-    function mark() { document.querySelectorAll("[data-speak]").forEach(b => { const on = b.dataset.speak === busyId; b.classList.toggle("on", on); b.innerHTML = on ? '⏹<span class="sl"> Stopp</span>' : '🔊<span class="sl"> Vorlesen</span>'; b.setAttribute("aria-label", on ? "Vorlesen stoppen" : "Vorlesen"); }); }
+    function mark(loading) { document.querySelectorAll("[data-speak]").forEach(b => { const on = b.dataset.speak === busyId; b.classList.toggle("on", on); b.innerHTML = on ? (loading ? '⏳<span class="sl"> lädt …</span>' : '⏹<span class="sl"> Stopp</span>') : '🔊<span class="sl"> Vorlesen</span>'; b.setAttribute("aria-label", on ? "Vorlesen stoppen" : "Vorlesen"); }); }
+    // ---- Natürliche Stimme über Google Gemini (mit dem KI-Schlüssel) ----
+    let actx = null, src = null;
+    const cache = new Map();
+    const GVOICES = [["Kore", "Kore (ruhig, weiblich)"], ["Charon", "Charon (sachlich, männlich)"], ["Aoede", "Aoede (freundlich, weiblich)"], ["Puck", "Puck (lebhaft, männlich)"]];
+    function useGemini() { const c = conf(); return !!aiConf().key && (String(c.voice).startsWith("gemini:") || !c.voice); }
+    function audioCtx() {
+      const A = window.AudioContext || window.webkitAudioContext; if (!A) return null;
+      if (!actx) actx = new A(); if (actx.state === "suspended") actx.resume().catch(() => {});
+      return actx;
+    }
+    async function ttsModels(ai) {
+      if (ai.ttsModels && ai.ttsAt > Date.now() - 7 * 864e5) return ai.ttsModels;
+      let list = [];
+      try {
+        const r = await gemFetch(GEM + "models?pageSize=1000", {}, ai.key, ai.way || "query", 15000), d = await r.json();
+        list = (d.models || []).filter(m => /tts/.test(m.name) && (m.supportedGenerationMethods || []).includes("generateContent")).map(m => m.name)
+          .sort((a, b) => (/flash/.test(b) - /flash/.test(a)) || b.localeCompare(a));
+      } catch (e) {}
+      if (!list.length) list = ["models/gemini-2.5-flash-preview-tts", "models/gemini-2.5-pro-preview-tts"];
+      const c = aiConf(); c.ttsModels = list; c.ttsAt = Date.now(); aiSave(c);
+      return list;
+    }
+    async function geminiAudio(text) {
+      const c = conf(), ai = aiConf(), vname = String(c.voice).startsWith("gemini:") ? c.voice.slice(7) : "Kore";
+      const key = vname + "|" + text; if (cache.has(key)) return cache.get(key);
+      const body = JSON.stringify({
+        contents: [{ parts: [{ text: "Lies den folgenden deutschen Lerntext ruhig, deutlich und gut verständlich vor, wie ein Ausbilder:\n\n" + text }] }],
+        generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: vname } } } }
+      });
+      let last = null;
+      for (const model of (await ttsModels(ai)).slice(0, 3)) {
+        try {
+          const r = await gemFetch(GEM + model + ":generateContent", { method: "POST", headers: { "content-type": "application/json" }, body }, ai.key, ai.way || "query", 45000);
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) { last = apiError(r, d); if (r.status === 429 || r.status === 404 || r.status >= 500) continue; throw last; }
+          const part = ((d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts) || []).find(p => p.inlineData);
+          if (!part) { last = new Error("Keine Sprachausgabe von Google"); continue; }
+          const rate = +((part.inlineData.mimeType || "").match(/rate=(\d+)/) || [0, 24000])[1];
+          const bin = atob(part.inlineData.data), n = bin.length >> 1, pcm = new Float32Array(n);
+          for (let i = 0; i < n; i++) { let v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); if (v >= 32768) v -= 65536; pcm[i] = v / 32768; }
+          const out = { pcm, rate };
+          cache.set(key, out); if (cache.size > 40) cache.delete(cache.keys().next().value);
+          return out;
+        } catch (e) { last = e.status ? e : (e.message ? e : netError(e)); if (!/429|überlast|Limit|quota/i.test(last.message || "")) break; }
+      }
+      throw last || new Error("Natürliche Stimme nicht erreichbar");
+    }
+    function stopAudio() { if (src) { try { src.onended = null; src.stop(); } catch (e) {} src = null; } }
+    async function speakGemini(list, my, report) {
+      const ctx = audioCtx(); // im Tipp-Ereignis anlegen, sonst sperrt das iPhone den Ton
+      try {
+        const a = await geminiAudio(list.join(" "));
+        if (my !== token) return;
+        const ctx2 = ctx || audioCtx(); if (!ctx2) throw new Error("Kein Audio");
+        const buf = ctx2.createBuffer(1, a.pcm.length, a.rate); buf.getChannelData(0).set(a.pcm);
+        src = ctx2.createBufferSource(); src.buffer = buf; src.playbackRate.value = +conf().rate || 1; src.connect(ctx2.destination);
+        src.onended = () => { if (my === token) { src = null; busyId = null; mark(); } };
+        src.start(); started = true; mark(); if (report) report(true, "");
+      } catch (e) {
+        if (my !== token) return;
+        toast("Natürliche Stimme gerade nicht verfügbar" + (/429|Limit|quota/i.test(e.message || "") ? " (Tageslimit bei Google)" : "") + " – Gerätestimme liest vor");
+        deviceSpeak(list, my, report);
+      }
+    }
     let lastErr = "";
     function speak(parts, id, report) {
+      if (!has && !aiConf().key) { toast("Dein Browser kann leider nicht vorlesen"); return; }
+      if (useGemini()) {
+        stop(); const my = token, list = []; [].concat(parts).forEach(p => list.push(clean(p)));
+        if (!list.join("").trim()) return;
+        busyId = id || "x"; mark(true); started = false;
+        speakGemini(list, my, report);
+        return;
+      }
       if (!has) { toast("Dein Browser kann leider nicht vorlesen"); return; }
       const wasBusy = (() => { try { return speechSynthesis.speaking || speechSynthesis.pending; } catch (e) { return false; } })();
-      stop(); const my = token, list = []; [].concat(parts).forEach(p => list.push(...pieces(p)));
-      if (!list.length) return;
-      busyId = id || "x"; mark(); started = false; lastErr = "";
+      stop(); const my = token;
+      busyId = id || "x"; mark();
+      deviceSpeak([].concat(parts), my, report, wasBusy);
+    }
+    function deviceSpeak(parts, my, report, wasBusy) {
+      if (!has) { busyId = null; mark(); return; }
+      const list = []; parts.forEach(p => list.push(...pieces(p)));
+      if (!list.length) { busyId = null; mark(); return; }
+      started = false; lastErr = "";
       const c = conf(), v = voice();
       const go = () => {
         if (my !== token) return;
@@ -413,7 +495,7 @@
     function hint() {
       toast(apple ? "Kein Ton? Stummschalter am iPhone aus (kein Orange sichtbar) und Lautstärke hoch" : "Kein Ton? Lautstärke prüfen – unter Mehr → Vorlesen eine andere Stimme wählen");
     }
-    return { has, apple, speak, stop, mark, voices: () => (load(), voices), busy: () => !!busyId && has && speechSynthesis.speaking, conf, id: () => busyId };
+    return { has, apple, speak, stop, mark, GVOICES, useGemini, voices: () => (load(), voices), busy: () => !!busyId && (!!src || (has && speechSynthesis.speaking)), conf, id: () => busyId };
   })();
   // Text zum Vorlesen: Frage mit Antworten in der angezeigten Reihenfolge
   function sayQuestion(q, order) {
@@ -437,7 +519,12 @@
       <p class="muted">Mit 🔊 bei jeder Frage liest die App Frage und Antworten vor, nach dem Prüfen auch die Lösung mit Erklärung. Am PC geht es auch mit der Taste V.</p>
       <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="ttsauto" style="width:22px;height:22px;margin:0" ${c.auto ? "checked" : ""}> Jede Frage automatisch vorlesen</label>
       <label>Tempo</label><select id="ttsrate">${[[0.8, "Langsam"], [1, "Normal"], [1.15, "Etwas schneller"], [1.3, "Schnell"]].map(([v, n]) => `<option value="${v}" ${+c.rate === v ? "selected" : ""}>${n}</option>`).join("")}</select>
-      ${vs.length > 1 ? `<label>Stimme</label><select id="ttsvoice"><option value="">Automatisch (${TTS.apple ? "deutsche Systemstimme" : "beste deutsche Stimme"})</option>${vs.map(v => `<option value="${esc(v.voiceURI)}" ${c.voice === v.voiceURI ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select>` : ""}
+      <label>Stimme</label><select id="ttsvoice">
+        <option value="">Automatisch (${aiConf().key ? "natürliche Stimme" : "beste Gerätestimme"})</option>
+        ${aiConf().key ? `<optgroup label="✨ Natürlich (über Google Gemini, wie ein Mensch)">${TTS.GVOICES.map(([v, n]) => `<option value="gemini:${v}" ${c.voice === "gemini:" + v ? "selected" : ""}>${n}</option>`).join("")}</optgroup>` : ""}
+        ${vs.length ? `<optgroup label="📱 Stimme des Geräts (sofort, ohne Internet)">${vs.map(v => `<option value="${esc(v.voiceURI)}" ${c.voice === v.voiceURI ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</optgroup>` : ""}
+      </select>
+      <p class="muted">${aiConf().key ? "✨ Die natürlichen Stimmen klingen wie ein Mensch, brauchen aber Internet und 2–5 Sekunden zum Laden. Google erlaubt davon nur eine begrenzte Zahl pro Tag; ist das Limit erreicht, liest automatisch die Gerätestimme." : "✨ Mit einem KI-Schlüssel (siehe KI-Lernhelfer) gibt es hier natürliche Stimmen, die wie ein Mensch klingen."}</p>
       ${vs.length ? "" : `<p class="muted">⚠️ Auf diesem Gerät ist keine deutsche Stimme installiert, dann klingt es englisch. <b>iPhone:</b> Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Deutsch. <b>Windows:</b> Einstellungen → Zeit und Sprache → Sprache → Deutsch → Sprachausgabe.</p>`}
       <button class="btn sec" id="ttstest">▶ Probe hören</button><p class="muted" id="ttsres"></p>
       ${TTS.apple ? `<p class="muted">📱 iPhone: Vorlesen ist stumm, solange der <b>Stummschalter</b> an der Seite an ist (oder der Lautlos-Modus über die Aktionstaste).</p>` : ""}</div>`;
