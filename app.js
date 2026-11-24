@@ -389,7 +389,7 @@
     if (has) ["pointerdown", "touchend", "keydown"].forEach(ev => document.addEventListener(ev, unlock, { once: true, passive: true }));
     function mark(loading) { document.querySelectorAll("[data-speak]").forEach(b => { const on = b.dataset.speak === busyId; b.classList.toggle("on", on); b.innerHTML = on ? (loading ? '⏳<span class="sl"> lädt …</span>' : '⏹<span class="sl"> Stopp</span>') : '🔊<span class="sl"> Vorlesen</span>'; b.setAttribute("aria-label", on ? "Vorlesen stoppen" : "Vorlesen"); }); }
     // ---- Natürliche Stimme über Google Gemini (mit dem KI-Schlüssel) ----
-    let actx = null, src = null;
+    let actx = null, src = null, lastWho = "";
     const cache = new Map();
     const GVOICES = [["Kore", "Kore (ruhig, weiblich)"], ["Charon", "Charon (sachlich, männlich)"], ["Aoede", "Aoede (freundlich, weiblich)"], ["Puck", "Puck (lebhaft, männlich)"]];
     function useGemini() { const c = conf(); return !!aiConf().key && (String(c.voice).startsWith("gemini:") || !c.voice); }
@@ -410,25 +410,29 @@
       const c = aiConf(); c.ttsModels = list; c.ttsAt = Date.now(); aiSave(c);
       return list;
     }
+    const pace = () => { const r = +conf().rate || 1; return r < 0.95 ? "langsam und sehr deutlich" : r > 1.2 ? "zügig, aber deutlich" : r > 1.05 ? "in normalem Tempo, deutlich" : "ruhig und deutlich"; };
     async function geminiAudio(text) {
       const c = conf(), ai = aiConf(), vname = String(c.voice).startsWith("gemini:") ? c.voice.slice(7) : "Kore";
-      const key = vname + "|" + text; if (cache.has(key)) return cache.get(key);
-      const body = JSON.stringify({
-        contents: [{ parts: [{ text: "Lies den folgenden deutschen Lerntext ruhig, deutlich und gut verständlich vor, wie ein Ausbilder:\n\n" + text }] }],
-        generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: vname } } } }
+      const key = vname + "|" + pace() + "|" + text; if (cache.has(key)) return cache.get(key);
+      const mk = withLang => JSON.stringify({
+        contents: [{ parts: [{ text: "Du bist ein deutscher Ausbilder aus Deutschland. Sprich akzentfreies Hochdeutsch, " + pace() + ", mit natürlichen kurzen Pausen zwischen den Sätzen. Lies nur den folgenden Text vor:\n\n" + text }] }],
+        generationConfig: { responseModalities: ["AUDIO"], speechConfig: Object.assign(withLang ? { languageCode: "de-DE" } : {}, { voiceConfig: { prebuiltVoiceConfig: { voiceName: vname } } }) }
       });
+      let body = mk(!ai.ttsNoLang);
       let last = null;
       for (const model of (await ttsModels(ai)).slice(0, 3)) {
         try {
-          const r = await gemFetch(GEM + model + ":generateContent", { method: "POST", headers: { "content-type": "application/json" }, body }, ai.key, ai.way || "query", 45000);
+          let r = await gemFetch(GEM + model + ":generateContent", { method: "POST", headers: { "content-type": "application/json" }, body }, ai.key, ai.way || "query", 45000);
           const d = await r.json().catch(() => ({}));
+          // Kennt das Modell die Sprachangabe nicht, ohne sie nochmal versuchen
+          if (r.status === 400 && !ai.ttsNoLang && /language/i.test(JSON.stringify(d))) { ai.ttsNoLang = true; const c2 = aiConf(); c2.ttsNoLang = true; aiSave(c2); body = mk(false); const again = await gemFetch(GEM + model + ":generateContent", { method: "POST", headers: { "content-type": "application/json" }, body }, ai.key, ai.way || "query", 45000); Object.assign(d, await again.json().catch(() => ({}))); if (again.ok) { r = again; } }
           if (!r.ok) { last = apiError(r, d); if (r.status === 429 || r.status === 404 || r.status >= 500) continue; throw last; }
-          const part = ((d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts) || []).find(p => p.inlineData);
-          if (!part) { last = new Error("Keine Sprachausgabe von Google"); continue; }
-          const rate = +((part.inlineData.mimeType || "").match(/rate=(\d+)/) || [0, 24000])[1];
-          const bin = atob(part.inlineData.data), n = bin.length >> 1, pcm = new Float32Array(n);
+          const parts = ((d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts) || []).filter(p => p.inlineData && p.inlineData.data);
+          if (!parts.length) { last = new Error("Keine Sprachausgabe von Google"); continue; }
+          const mime = parts[0].inlineData.mimeType || "", rate = +(mime.match(/rate=(\d+)/) || [0, 24000])[1];
+          const bin = parts.map(p => atob(p.inlineData.data)).join(""), n = bin.length >> 1, pcm = new Float32Array(n);
           for (let i = 0; i < n; i++) { let v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); if (v >= 32768) v -= 65536; pcm[i] = v / 32768; }
-          const out = { pcm, rate };
+          const out = { pcm, rate, who: "Google " + vname + " (" + model.replace(/^models\//, "") + ", " + rate + " Hz)" };
           cache.set(key, out); if (cache.size > 40) cache.delete(cache.keys().next().value);
           return out;
         } catch (e) { last = e.status ? e : (e.message ? e : netError(e)); if (!/429|überlast|Limit|quota/i.test(last.message || "")) break; }
@@ -443,17 +447,19 @@
         if (my !== token) return;
         const ctx2 = ctx || audioCtx(); if (!ctx2) throw new Error("Kein Audio");
         const buf = ctx2.createBuffer(1, a.pcm.length, a.rate); buf.getChannelData(0).set(a.pcm);
-        src = ctx2.createBufferSource(); src.buffer = buf; src.playbackRate.value = +conf().rate || 1; src.connect(ctx2.destination);
+        src = ctx2.createBufferSource(); src.buffer = buf; src.connect(ctx2.destination); lastWho = a.who;
         src.onended = () => { if (my === token) { src = null; busyId = null; mark(); } };
         src.start(); started = true; mark(); if (report) report(true, "");
       } catch (e) {
         if (my !== token) return;
+        lastWho = "Handy, weil Google nicht ging: " + (e.message || "Fehler");
         toast("Natürliche Stimme gerade nicht verfügbar" + (/429|Limit|quota/i.test(e.message || "") ? " (Tageslimit bei Google)" : "") + " – Gerätestimme liest vor");
         deviceSpeak(list, my, report);
       }
     }
     let lastErr = "";
     function speak(parts, id, report) {
+      lastWho = "";
       if (!has && !aiConf().key) { toast("Dein Browser kann leider nicht vorlesen"); return; }
       if (useGemini()) {
         stop(); const my = token, list = []; [].concat(parts).forEach(p => list.push(clean(p)));
@@ -474,6 +480,7 @@
       if (!list.length) { busyId = null; mark(); return; }
       started = false; lastErr = "";
       const c = conf(), v = voice();
+      if (!/^Handy, weil/.test(lastWho)) lastWho = "Handy: " + (v ? v.name : "Systemstimme");
       const go = () => {
         if (my !== token) return;
         try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e) {}
@@ -495,7 +502,7 @@
     function hint() {
       toast(apple ? "Kein Ton? Stummschalter am iPhone aus (kein Orange sichtbar) und Lautstärke hoch" : "Kein Ton? Lautstärke prüfen – unter Mehr → Vorlesen eine andere Stimme wählen");
     }
-    return { has, apple, speak, stop, mark, GVOICES, useGemini, voices: () => (load(), voices), busy: () => !!busyId && (!!src || (has && speechSynthesis.speaking)), conf, id: () => busyId };
+    return { has, apple, speak, stop, mark, GVOICES, useGemini, who: () => lastWho, resetWho: () => { lastWho = ""; }, voices: () => (load(), voices), busy: () => !!busyId && (!!src || (has && speechSynthesis.speaking)), conf, id: () => busyId };
   })();
   // Text zum Vorlesen: Frage mit Antworten in der angezeigten Reihenfolge
   function sayQuestion(q, order) {
@@ -539,8 +546,8 @@
       const b = $("#ttstest"); b.textContent = "Spricht …";
       TTS.speak("Frage: Was ist bei Notwehr nach Paragraf 32 Strafgesetzbuch erlaubt? Antwort A: Die erforderliche Verteidigung gegen einen gegenwärtigen, rechtswidrigen Angriff.", "probe", (ok, err) => {
         const r = $("#ttsres"); if (!r) return; b.textContent = "▶ Probe hören";
-        r.innerHTML = ok ? "✅ Die Sprachausgabe läuft. Hörst du trotzdem nichts, ist der Ton aus: " + (TTS.apple ? "<b>Stummschalter</b> an der Seite des iPhones umlegen (kein Orange sichtbar) und Lautstärke hoch." : "Lautstärke am Gerät hochdrehen.")
-          : "⚠️ Die Sprachausgabe startet nicht" + (err ? " (" + esc(err) + ")" : "") + ". " + (TTS.apple ? "Prüfe den <b>Stummschalter</b> und die Lautstärke. Falls es weiter nicht geht: Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Deutsch → eine Stimme laden." : "Wähle oben eine andere Stimme oder installiere eine deutsche Stimme.");
+        r.innerHTML = (TTS.who() ? "🎙️ Gespielt: <b>" + esc(TTS.who()) + "</b><br>" : "") + (ok ? "✅ Die Sprachausgabe läuft. Hörst du trotzdem nichts, ist der Ton aus: " + (TTS.apple ? "<b>Stummschalter</b> an der Seite des iPhones umlegen (kein Orange sichtbar) und Lautstärke hoch." : "Lautstärke am Gerät hochdrehen.")
+          : "⚠️ Die Sprachausgabe startet nicht" + (err ? " (" + esc(err) + ")" : "") + ". " + (TTS.apple ? "Prüfe den <b>Stummschalter</b> und die Lautstärke. Falls es weiter nicht geht: Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Deutsch → eine Stimme laden." : "Wähle oben eine andere Stimme oder installiere eine deutsche Stimme."));
       });
     };
   }

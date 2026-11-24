@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.13 vom 24.11.2026
+- **Version:** 2.14 vom 24.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,11 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.14 – 24.11.2026
+- Nutzer: Stimme klingt nach Roboter, zu schnell, Akzent, stockt. Gemini-TTS: `speechConfig.languageCode = "de-DE"` (bei 400 ohne, gemerkt als `ttsNoLang`), Anweisung „akzentfreies Hochdeutsch“, Tempo per Anweisung (`pace()`) statt `playbackRate` (verstellte die Tonhöhe), mehrere Audio-Teile werden zusammengesetzt
+- `TTS.who()`: welche Stimme gespielt hat bzw. warum auf die Gerätestimme zurückgefallen wurde, Anzeige bei „Probe hören“
+
 
 ### 2.13 – 24.11.2026
 - Nutzer verstand die iPhone-Stimme nicht. Neu: Gemini-TTS (`geminiAudio()` im `TTS`-Modul): Modell aus der Modellliste (`tts` im Namen, `ttsModels` in `slapp-ai`, 7 Tage gemerkt), `responseModalities: ["AUDIO"]`, Stimme `Kore`/`Charon`/`Aoede`/`Puck`, PCM 24 kHz → Web Audio. Zwischenspeicher für 40 Texte, Rückfall auf die Gerätestimme bei Fehler oder Limit

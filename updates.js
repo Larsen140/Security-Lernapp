@@ -2,6 +2,13 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.14", d: "2026-11-24", items: [
+      "Natürliche Stimme verbessert: Google bekommt jetzt ausdrücklich Deutsch vorgegeben und soll akzentfrei, ruhig und deutlich sprechen",
+      "Das Tempo wird nicht mehr durch schnelleres Abspielen verstellt (das klang nach Roboter), sondern Google spricht selbst langsamer oder zügiger",
+      "„Probe hören“ unter Mehr → Vorlesen zeigt jetzt, welche Stimme wirklich gespielt hat und warum, falls Google nicht ging"
+    ]
+  },
+  {
     v: "2.13", d: "2026-11-24", items: [
       "Neu: natürliche Stimme zum Vorlesen. Mit deinem Gemini-Schlüssel liest jetzt eine Stimme von Google vor, die wie ein Mensch klingt (Standard, wenn ein Schlüssel eingetragen ist)",
       "Vier Stimmen zur Auswahl unter Mehr → Vorlesen: Kore, Charon, Aoede und Puck. Das Laden dauert 2–5 Sekunden, der Knopf zeigt solange ⏳",
