@@ -2,6 +2,15 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.7", d: "2026-11-24", items: [
+      "Neu: Fokus-Runde auf der Startseite. 15, 25 oder 45 Minuten nur Fragen, ohne Menü, die Zeit läuft oben mit",
+      "Gegen Müdigkeit: Tippst du eine Minute lang nichts, klingelt die App, vibriert und gibt dir eine kurze Aufgabe zum Wachwerden (z. B. 10 Kniebeugen oder kaltes Wasser)",
+      "Verlässt du die App während der Runde, begrüßt sie dich beim Zurückkommen und zählt es als Ablenkung",
+      "Auf Wunsch ruhiges Rauschen im Hintergrund, der Bildschirm bleibt während der Runde an",
+      "Am Ende: Fragen, Trefferquote, Ablenkungen und wie oft du weggenickt bist, dazu eine 5-Minuten-Pause mit Uhr"
+    ]
+  },
+  {
     v: "2.6", d: "2026-11-24", items: [
       "Der Hinweis „Lösung aus früherer KATI-Auswertung“ steht nicht mehr im Fragetext, auch nicht bei schon importierten Fragen",
       "Beim Import wird er gleich weggelassen, ebenso ein „Lösungsvorschlag“ am Ende der Frage (der Hinweis darauf steht weiter in der Erklärung)"

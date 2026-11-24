@@ -447,3 +447,40 @@ input[type=search]{-webkit-appearance:none;appearance:none}
 }
 @keyframes drawer{from{transform:translateX(100%)}}
 @media (min-width:1400px){ body[data-page=themen] #app{grid-template-columns:repeat(3,1fr)} }
+
+/* ---------- Fokus-Runde ---------- */
+.focuscard .big{background:rgba(255,196,0,.18)}
+.fchoice{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.fchoice button{background:var(--bg);border:2px solid var(--line);border-radius:14px;padding:12px 6px;cursor:pointer;color:var(--muted);font:600 14px var(--body);transition:transform .12s var(--ease),border-color .15s}
+.fchoice button b{display:block;font:700 32px/1 var(--display);color:var(--text)}
+.fchoice button.on{border-color:var(--signal);background:rgba(255,196,0,.14);color:var(--text)}
+.fchoice button:active{transform:scale(.95)}
+.frow{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;font-weight:600;margin:6px 0 12px}
+.frow input{width:22px;height:22px;margin:0}
+.frow .muted{flex-basis:100%;padding-left:32px;font-weight:400;font-size:14px}
+.ftips{display:flex;flex-wrap:wrap;gap:6px;font-size:14px;margin:4px 0 10px}
+.ftips b{flex-basis:100%}
+.ftips span{background:var(--bg);border-radius:10px;padding:5px 9px}
+.fpill{margin-left:auto;display:flex;align-items:center;gap:7px;width:auto!important;height:auto!important;padding:6px 11px!important;background:rgba(255,196,0,.16)!important;color:var(--signal)!important;font:700 18px/1 var(--display)!important;font-variant-numeric:tabular-nums;border-radius:20px!important}
+.fpill small{font:600 11px var(--body);color:rgba(255,255,255,.6);margin-left:2px}
+.fring{width:16px;height:16px;border-radius:50%;background:conic-gradient(var(--signal) var(--p),rgba(255,255,255,.18) 0);flex:none}
+body.focus .tabs{display:none!important}
+.fbig{font-size:64px;line-height:1;margin:6px 0 8px;animation:pop .5s var(--ease)}
+.breakbox{margin:16px auto 4px;width:150px;height:150px;border-radius:50%;display:grid;place-content:center;text-align:center;background:linear-gradient(160deg,#1E9E62,#147A4A);color:#fff;box-shadow:0 0 0 8px rgba(30,158,98,.18);animation:breathe 8s ease-in-out infinite}
+.breakbox b{font:700 40px/1 var(--display);font-variant-numeric:tabular-nums}
+.breakbox span{font-size:14px;opacity:.85}
+.breakbox.over{background:var(--signal);color:var(--ink);animation:none}
+@keyframes breathe{0%,100%{transform:scale(.94)}50%{transform:scale(1.04)}}
+.wakeov{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:16px;background:rgba(5,12,22,.78);animation:fade .25s}
+.wakebox{background:var(--card);border-radius:22px;padding:22px 20px;max-width:380px;width:100%;text-align:center;box-shadow:0 20px 50px -10px rgba(0,0,0,.5);border-top:6px solid var(--signal);animation:pop .4s var(--ease)}
+.wakebox .wz{font-size:56px;line-height:1;animation:nod 1.6s ease-in-out infinite}
+.wakebox>b{display:block;font:700 30px/1.1 var(--display);margin:8px 0 2px}
+.wakebox p{margin:4px 0 12px}
+.wtask{background:rgba(255,196,0,.18);border-radius:14px;padding:12px;font:700 19px/1.3 var(--display);margin-bottom:4px}
+@keyframes nod{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg) translateY(3px)}}
+@media (min-width:980px){
+  body.focus{padding-left:0}
+  body.focus .sticky-foot{left:0}
+  body.focus .toast{left:50%}
+  body.focus .updbar{left:20px}
+}

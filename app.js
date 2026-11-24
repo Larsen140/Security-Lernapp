@@ -115,6 +115,8 @@
       combo(n) { if (on()) tone(700 + Math.min(n, 12) * 45, 0.22, 0.09, "sine", 0.045); },
       done() { if (on()) [523, 659, 784].forEach((f, i) => tone(f, i * 0.1, 0.22, "sine", 0.06)); },
       pass() { if (on()) [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.13, i === 3 ? 0.6 : 0.2, "triangle", 0.07)); },
+      // Weckton: zwei helle Glockenschläge, auch bei ausgeschalteten Tönen (nur in der Fokus-Runde)
+      alarm() { [[880, 0], [1175, 0.18], [880, 0.5], [1175, 0.68]].forEach(([f, t]) => tone(f, t, 0.35, "sine", 0.12)); },
       fail() { if (on()) [392, 330, 262].forEach((f, i) => tone(f, i * 0.17, 0.28, "sine", 0.055)); },
     };
   })();
@@ -192,6 +194,7 @@
         <button class="tile" data-go="#/markiert"><span class="big">⭐</span><b>Markierte Fragen</b><span class="muted">${flaggedCount()} ${flaggedCount() === 1 ? "Frage" : "Fragen"}</span></button>
         <button class="tile" id="aihome"><span class="big">🤖</span><b>KI-Lernhelfer</b><span class="muted">Frag alles zum Stoff</span></button>
       </div>
+      <button class="card examcard focuscard" data-go="#/fokus"><span class="big">🎯</span><span class="einfo"><b>Fokus-Runde</b><span class="muted">${(S.settings.focus || {}).min || 25} Min. konzentriert lernen, danach Pause</span></span><span class="chev">›</span></button>
       <button class="card examcard" data-go="#/pruefung"><span class="big">📝</span><span class="einfo"><b>Prüfung simulieren</b><span class="muted">${examSize()} Fragen · 120 Min.${lastExam ? ` · zuletzt <b class="${lastExam.pass ? "pass" : "fail"}">${lastExam.pct} %</b>` : ""}</span></span><span class="chev">›</span></button>
       ${VERSION ? `<button class="version" data-go="#/neu">Version ${esc(VERSION)} · Stand ${fmtDate(UPDATES[0].d)} · Was ist neu?</button>` : ""}`;
     $("#app").innerHTML = html; foot("");
@@ -263,6 +266,7 @@
   function startLearn(mode) {
     let list, title, back = "#/";
     if (mode === "mix") { list = pickSmart(allQuestions(), 20); title = "Weiterlernen"; }
+    else if (mode === "fokus") { if (!focus) return go("#/fokus"); list = pickSmart(allQuestions(), 20); title = "Fokus"; back = () => endFocus(true); }
     else if (mode === "fehler") { list = shuffle(allQuestions().filter(q => status(q) === 1)); title = "Fehler wiederholen"; }
     else if (mode === "markiert") { list = shuffle(allQuestions().filter(q => S.flags[q.id])); title = "Markierte Fragen"; }
     else if (mode === "quick") { list = shuffle(allQuestions()).slice(0, 10); title = "Schnelltest"; }
@@ -280,7 +284,7 @@
       $("#app").innerHTML = `<div class="card"><h2>Nichts zu tun 🎉</h2><p>Hier gibt es gerade keine Fragen. Wähle einen anderen Lernmodus.</p></div>`;
       foot(`<button class="btn" data-go="${back}">Zurück</button>`); return;
     }
-    session = { list, i: 0, sel: [], checked: false, right: 0, title, back, order: null, combo: 0, best: 0, hist: [] };
+    session = { list, i: 0, sel: [], checked: false, right: 0, title, back, order: null, combo: 0, best: 0, hist: [], focus: mode === "fokus" };
     renderQ();
   }
   function prepOrder(q) { return shuffle(q.a.map((_, i) => i)); }
@@ -324,15 +328,16 @@
       if (i >= 0) s.sel.splice(i, 1); else s.sel.push(a); SFX.tap(); renderQ();
     });
     if (!s.checked) foot(`<button class="btn" id="check" ${s.sel.length ? "" : "disabled"}>Antwort prüfen</button>`);
-    else foot(`<button class="btn" id="next">${s.i + 1 < s.list.length ? "Nächste Frage ▶" : "Auswertung ▶"}</button>`);
+    else foot(`<button class="btn" id="next">${s.i + 1 < s.list.length || s.focus ? "Nächste Frage ▶" : "Auswertung ▶"}</button>`);
+    if (s.focus) focusPill();
     const ch = $("#check"); if (ch) ch.onclick = () => {
       s.checked = true; s.just = true; const ok = isRight(q, s.sel);
       s.hist.push(ok);
       if (ok) { s.right++; s.combo++; s.best = Math.max(s.best, s.combo); SFX.ok(); if (s.combo >= 3) SFX.combo(s.combo); } else { s.combo = 0; SFX.bad(); }
-      record(q, ok); renderQ();
+      record(q, ok); if (s.focus && focus) { focus.n++; if (ok) focus.right++; } renderQ();
       const ex = $(".expl"); if (ex && ex.getBoundingClientRect().bottom > innerHeight - 90) ex.scrollIntoView({ behavior: calm() ? "auto" : "smooth", block: "center" });
     };
-    const nx = $("#next"); if (nx) nx.onclick = () => { s.i++; s.sel = []; s.checked = false; s.order = null; if (s.i >= s.list.length) learnDone(); else { s.slide = true; window.scrollTo(0, 0); renderQ(); } };
+    const nx = $("#next"); if (nx) nx.onclick = () => { s.i++; s.sel = []; s.checked = false; s.order = null; if (s.i >= s.list.length && s.focus) { s.list = pickSmart(allQuestions(), 20); s.i = 0; s.hist = []; s.slide = true; window.scrollTo(0, 0); renderQ(); } else if (s.i >= s.list.length) learnDone(); else { s.slide = true; window.scrollTo(0, 0); renderQ(); } };
   }
   function isRight(q, sel) { return sel.length === q.c.length && sel.every(a => q.c.includes(a)); }
   // Punkte wie in der IHK-Prüfung seit 1. Juli 2025: je richtig angekreuzter Antwort ein Punkt (Teilpunkte).
@@ -354,6 +359,154 @@
     if (pct >= 80) setTimeout(() => confetti(pct === 100 ? 120 : 70), 700);
     $("#again").onclick = () => router(true);
   }
+
+  // ---------- Fokus-Runde ----------
+  // Feste Lernzeit (Pomodoro): Navigation weg, Zeit läuft sichtbar, Bildschirm bleibt an, auf Wunsch ruhiges Rauschen.
+  // Wer die App verlässt, wird beim Zurückkommen begrüßt, und es wird als Ablenkung gezählt.
+  let focus = null, fTimer = null, wake = null;
+  const fmtMin = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(t / 60) + ":" + String(t % 60).padStart(2, "0"); };
+  const NOISE = (() => {
+    let ctx = null, src = null, gain = null;
+    return {
+      start() {
+        const A = window.AudioContext || window.webkitAudioContext; if (!A || src) return;
+        try {
+          ctx = ctx || new A(); if (ctx.state === "suspended") ctx.resume().catch(() => {});
+          // Braunes Rauschen: tief und gleichmäßig, überdeckt Geräusche ohne abzulenken
+          const len = ctx.sampleRate * 4, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+          let last = 0; for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.2; }
+          src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+          gain = ctx.createGain(); gain.gain.setValueAtTime(0.0001, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 1.5);
+          src.connect(gain); gain.connect(ctx.destination); src.start();
+        } catch (e) { src = null; }
+      },
+      stop() {
+        if (!src) return; const s0 = src; src = null;
+        try { gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6); setTimeout(() => { try { s0.stop(); } catch (e) {} }, 700); } catch (e) {}
+      }
+    };
+  })();
+  async function keepAwake(on) {
+    try {
+      if (on && !wake && navigator.wakeLock) { wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release", () => { wake = null; }); }
+      else if (!on && wake) { await wake.release(); wake = null; }
+    } catch (e) { wake = null; }
+  }
+  function focusPage() {
+    clearTimer();
+    setHeader("Fokus-Runde", "#/");
+    const f = S.settings.focus || { min: 25, noise: false };
+    const last = (S.settings.focusLog || []).slice(-1)[0];
+    $("#app").innerHTML = `<div class="badge thero focushero"><div class="top"><div class="title">🎯 Konzentriert lernen<b>Fokus-Runde</b></div></div>
+      <div class="last">Eine feste Zeit nur Fragen, ohne Menü und ohne Ablenkung. Danach eine kurze Pause.</div></div>
+      <div class="card"><h2>Wie lange?</h2><div class="fchoice" id="fmin">${[15, 25, 45].map(m => `<button class="${f.min === m ? "on" : ""}" data-m="${m}"><b>${m}</b>Min.</button>`).join("")}</div>
+      <label class="frow"><input type="checkbox" id="fnoise" ${f.noise ? "checked" : ""}> 🎧 Ruhiges Rauschen im Hintergrund<span class="muted">überdeckt Geräusche um dich herum, am besten mit Kopfhörern</span></label>
+      <div class="ftips"><b>So klappt's:</b><span>📵 Handy auf „Nicht stören“ stellen</span><span>💧 Wasser bereitstellen</span><span>💡 Helles Licht, nicht im Bett lernen</span><span>🚪 Andere Apps und Tabs schließen</span></div>
+      <p class="muted">😴 <b>Gegen Müdigkeit:</b> Tippst du eine Minute lang nichts, klingelt die App leise und gibt dir eine kurze Aufgabe zum Wachwerden.</p></div>
+      ${last ? `<p class="muted" style="text-align:center">Letzte Fokus-Runde: ${last.n} Fragen, ${last.n ? Math.round(last.r / last.n * 100) : 0} % richtig${last.a ? ", " + last.a + "× abgelenkt" : ", ohne Ablenkung 👏"}</p>` : ""}`;
+    foot(`<button class="btn" id="fstart">▶ Fokus starten</button>`);
+    document.querySelectorAll("#fmin button").forEach(b => b.onclick = () => { document.querySelectorAll("#fmin button").forEach(x => x.classList.toggle("on", x === b)); SFX.tap(); });
+    $("#fstart").onclick = () => {
+      const min = +($("#fmin .on") || { dataset: { m: 25 } }).dataset.m, noise = $("#fnoise").checked;
+      S.settings.focus = { min, noise }; S.settings._t = Date.now(); save();
+      startFocus(min, noise);
+    };
+  }
+  function startFocus(min, noise) {
+    SFX.unlock();
+    focus = { min, noise, end: Date.now() + min * 60000, n: 0, right: 0, away: 0, left: 0, act: Date.now(), nod: 0 };
+    document.body.classList.add("focus");
+    if (noise) NOISE.start();
+    keepAwake(true);
+    clearInterval(fTimer); fTimer = setInterval(focusTick, 1000);
+    if (location.hash === "#/lernen/fokus") router(true); else go("#/lernen/fokus");
+    toast("Los geht's – " + min + " Minuten nur für dich 🎯");
+  }
+  function focusPill() {
+    if (!focus) return;
+    let el = $("#fpill");
+    if (!el) { el = document.createElement("button"); el.id = "fpill"; el.className = "fpill"; $("header").appendChild(el); el.onclick = () => endFocus(true); }
+    const left = focus.end - Date.now(), share = Math.max(0, Math.min(1, left / (focus.min * 60000)));
+    el.innerHTML = `<span class="fring" style="--p:${share * 360}deg"></span>${fmtMin(left)}<small>Beenden</small>`;
+    el.title = "Fokus-Runde beenden";
+  }
+  function focusTick() {
+    if (!focus) return;
+    if (location.hash !== "#/lernen/fokus") return;
+    focusPill();
+    if (Date.now() >= focus.end) return focusDone();
+    if (!document.hidden && !$("#wakeov") && Date.now() - focus.act > WAKE_MS) wakeUp();
+  }
+  function endFocus(ask) {
+    if (!focus) return go("#/");
+    if (ask && !confirm("Fokus-Runde jetzt beenden?")) return;
+    focusDone(true);
+  }
+  function stopFocusEffects() {
+    const ov = $("#wakeov"); if (ov) ov.remove();
+    clearInterval(fTimer); fTimer = null; NOISE.stop(); keepAwake(false);
+    document.body.classList.remove("focus"); const p = $("#fpill"); if (p) p.remove();
+  }
+  function focusDone(early) {
+    const f = focus; if (!f) return;
+    focus = null; stopFocusEffects(); session = null;
+    const log = (S.settings.focusLog || []).concat([{ d: Date.now(), m: f.min, n: f.n, r: f.right, a: f.away, early: !!early }]).slice(-20);
+    S.settings.focusLog = log; S.settings._t = Date.now(); save();
+    if (!early) SFX.pass();
+    focusResult(f, early);
+  }
+  function focusResult(f, early) {
+    clearTimer();
+    setHeader(early ? "Fokus beendet" : "Geschafft! Pause 🌿", "#/");
+    const pct = f.n ? Math.round(f.right / f.n * 100) : 0;
+    $("#app").innerHTML = `<div class="card donecard"><div class="fbig">${early ? "🎯" : "🌿"}</div>
+      <h2>${early ? "Fokus-Runde beendet" : f.min + " Minuten konzentriert gelernt!"}</h2>
+      <p class="muted" style="margin-top:-6px">${early ? "Auch kurze Runden zählen." : (f.nod ? "Jetzt 5 Minuten Pause, und zwar in Bewegung: raus an die frische Luft oder ein paar Treppen laufen. Das macht wacher als Sitzen." : "Jetzt 5 Minuten Pause: aufstehen, bewegen, Wasser trinken, nicht aufs Handy schauen.")}</p>
+      <div class="chips"><div><b>${f.n}</b>Fragen</div><div><b class="${pct >= 50 ? "pass" : "fail"}">${pct} %</b>richtig</div><div><b>${f.away ? f.away + "×" : "0 👏"}</b>abgelenkt</div><div><b>${f.nod ? f.nod + "×" : "0 💪"}</b>eingenickt</div></div>
+      ${!early ? `<div class="breakbox" id="bbox"><b id="btime">5:00</b><span>Pause</span></div>` : ""}</div>`;
+    foot(early ? `<button class="btn sec" data-go="#/">Startseite</button><button class="btn" data-go="#/fokus">Neue Runde</button>`
+      : `<button class="btn sec" data-go="#/">Fertig für heute</button><button class="btn" id="fagain">Noch eine Runde ▶</button>`);
+    enter(); if (!early && f.n && pct >= 80) setTimeout(() => confetti(60), 500);
+    const again = $("#fagain"); if (again) again.onclick = () => startFocus(f.min, f.noise);
+    if (!early) {
+      const end = Date.now() + 5 * 60000;
+      timerHandle = setInterval(() => {
+        const el = $("#btime"); if (!el) return clearTimer();
+        const left = end - Date.now(); el.textContent = fmtMin(left);
+        if (left <= 0) { clearTimer(); $("#bbox").classList.add("over"); el.textContent = "Weiter!"; SFX.done(); toast("Pause vorbei – bereit für die nächste Runde?"); }
+      }, 1000);
+    }
+  }
+  // Wachhalten: 60 Sekunden ohne Tippen → Ton, Vibration und eine kleine Aufgabe zum Wachwerden
+  const WAKE_MS = 60000;
+  const WAKE_TASKS = ["Steh auf und mach 10 Kniebeugen", "Trink ein großes Glas kaltes Wasser", "Öffne kurz das Fenster und atme 5× tief durch", "Lies die nächste Frage laut vor", "Kreise 10× die Schultern und streck dich", "Klatsch 20× in die Hände", "Lern die nächsten Fragen im Stehen", "Wasch dir kurz das Gesicht mit kaltem Wasser"];
+  ["pointerdown", "keydown", "touchstart", "wheel"].forEach(ev => document.addEventListener(ev, () => { if (focus) focus.act = Date.now(); }, { passive: true }));
+  function wakeUp() {
+    focus.nod++;
+    const task = WAKE_TASKS[(focus.nod - 1 + Math.floor(Math.random() * WAKE_TASKS.length)) % WAKE_TASKS.length];
+    SFX.alarm(); if (navigator.vibrate) navigator.vibrate([200, 120, 200, 120, 400]);
+    const ov = document.createElement("div"); ov.id = "wakeov"; ov.className = "wakeov";
+    ov.innerHTML = `<div class="wakebox"><div class="wz">😴</div><b>Noch wach?</b><p>Du hast seit einer Minute nichts getippt.</p>
+      <div class="wtask">⚡ ${esc(task)}</div><button class="btn" id="wakeok">Bin wieder wach ✋</button>
+      ${focus.nod >= 3 ? `<p class="muted">Schon ${focus.nod}× weggenickt. Wenn du richtig müde bist, merkt sich dein Kopf wenig. Dann lieber 20 Minuten hinlegen und danach weiterlernen.</p><button class="btn ghost" id="wakeend">Fokus-Runde beenden</button>` : ""}</div>`;
+    document.body.appendChild(ov);
+    // Nach weiteren 30 Sekunden ohne Reaktion noch einmal klingeln
+    const again = setInterval(() => { if (!$("#wakeov")) return clearInterval(again); SFX.alarm(); if (navigator.vibrate) navigator.vibrate(400); }, 30000);
+    $("#wakeok").onclick = () => { clearInterval(again); ov.remove(); focus && (focus.act = Date.now()); SFX.ok(); };
+    const we = $("#wakeend"); if (we) we.onclick = () => { clearInterval(again); ov.remove(); focusDone(true); };
+  }
+  // Ablenkungen zählen: App verlassen und nach mehr als 5 Sekunden zurückkommen
+  document.addEventListener("visibilitychange", () => {
+    if (!focus) return;
+    if (document.hidden) { focus.left = Date.now(); return; }
+    keepAwake(true);
+    if (focus.left && Date.now() - focus.left > 5000) {
+      focus.away++;
+      const rest = focus.end - Date.now();
+      toast(rest > 0 ? "Willkommen zurück 💪 Noch " + fmtMin(rest) + " Min." : "Willkommen zurück!");
+    }
+    focus.left = 0; focusTick();
+  });
 
   // ---------- Prüfungssimulation ----------
   const examSize = () => TOPICS.reduce((n, t) => n + Math.min(t.examCount, questionsOf(t.id).length), 0);
@@ -1315,9 +1468,10 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     const h = location.hash || "#/";
     const parts = h.slice(2).split("/");
     window.scrollTo(0, 0);
-    const tab = { "": "start", themen: "lernen", thema: "lernen", kapitel: "lernen", lernen: "lernen", markiert: "lernen", pruefung: "pruefung", eigene: "fragen", einstellungen: "mehr", neu: "mehr" }[parts[0]] || "start";
+    const tab = { "": "start", themen: "lernen", thema: "lernen", kapitel: "lernen", lernen: "lernen", markiert: "lernen", pruefung: "pruefung", fokus: "start", eigene: "fragen", einstellungen: "mehr", neu: "mehr" }[parts[0]] || "start";
     document.querySelectorAll("#tabs a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab));
     document.body.dataset.page = parts[0] || "start";
+    if (focus && h !== "#/lernen/fokus") { const f = focus; focus = null; stopFocusEffects(); S.settings.focusLog = (S.settings.focusLog || []).concat([{ d: Date.now(), m: f.min, n: f.n, r: f.right, a: f.away, early: true }]).slice(-20); S.settings._t = Date.now(); save(); }
     if (parts[0] === "themen") topicsPage();
     else if (parts[0] === "thema") topicPage(parts[1]);
     else if (parts[0] === "kapitel") lessonPage(parts[1]);
@@ -1325,6 +1479,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     else if (parts[0] === "markiert") { clearTimer(); startLearn("markiert"); }
     else if (parts[0] === "pruefung") { if (parts[1] === "laeuft") examRender(); else if (parts[1] === "ergebnis") examResult(); else examIntro(); }
     else if (parts[0] === "eigene") customPage();
+    else if (parts[0] === "fokus") focusPage();
     else if (parts[0] === "einstellungen") settingsPage();
     else if (parts[0] === "neu") updatesPage();
     else home();

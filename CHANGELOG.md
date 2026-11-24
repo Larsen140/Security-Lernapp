@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.6 vom 24.11.2026
+- **Version:** 2.7 vom 24.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,13 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.7 – 24.11.2026
+- Fokus-Runde `#/fokus` (Einstellung `S.settings.focus` {min, noise}, Verlauf `S.settings.focusLog`): Lernen im Modus `#/lernen/fokus` ohne Ende (immer neue 20er-Runden aus `pickSmart`), Zeitpille `#fpill` in der Kopfzeile, `body.focus` blendet Navigation aus (auch die Seitenleiste am PC)
+- Wachhalten: 60 s ohne Eingabe → `SFX.alarm()` (klingt auch bei ausgeschalteten Tönen), Vibration, Overlay `#wakeov` mit Aufgabe; nach 3× Hinweis auf eine echte Pause
+- Ablenkungen über `visibilitychange` (> 5 s weg), Bildschirm-Sperre über Wake Lock, braunes Rauschen über Web Audio (`NOISE`)
+- Ende der Zeit: Ergebnis mit 5-Minuten-Pause; Verlassen der Fokus-Seite beendet die Runde
+
 
 ### 2.6 – 24.11.2026
 - `cleanQ()` entfernt „Lösung aus früherer KATI-Auswertung“ (auch in derselben Zeile wie die Frage, so liest pdf.js manche Seiten) sowie „KATI-Auswertung“/„Lösungsvorschlag“ am Ende des Fragetexts; ein „Lösungsvorschlag“ am Ende setzt weiter die Markierung
