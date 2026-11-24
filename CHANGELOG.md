@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.11 vom 24.11.2026
+- **Version:** 2.12 vom 24.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,11 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.12 – 24.11.2026
+- Nutzer hörte am iPhone nichts. `TTS`: auf Apple-Geräten keine feste Stimme (nur `lang = de-DE`), `cancel()` nur wenn etwas läuft und danach 120 ms warten, stilles Entsperren beim ersten Tippen, Hinweis nach 2,5 s ohne `onstart`, Probe mit Ergebnis (`#ttsres`)
+- Bekannt: Am iPhone ist die Sprachausgabe bei eingeschaltetem Stummschalter stumm, darauf weist die App hin
+
 
 ### 2.11 – 24.11.2026
 - Vorlesen mit der Sprachausgabe des Geräts (`speechSynthesis`, nichts geht ins Internet): Modul `TTS` in `app.js`, Texte `sayQuestion()` / `sayResult()`, Knopf `#speak` im Lernen und in der Prüfung, Taste V

@@ -2,6 +2,14 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.12", d: "2026-11-24", items: [
+      "Vorlesen am iPhone repariert: Die App nimmt jetzt die deutsche Systemstimme statt einer „Erweitert“-Stimme, die evtl. nicht geladen ist und stumm bleibt",
+      "Safari blieb stumm, wenn direkt nach dem Abbrechen neu gesprochen wurde – das ist behoben, die Sprachausgabe wird außerdem beim ersten Tippen freigeschaltet",
+      "Kommt kein Ton, zeigt die App jetzt einen Hinweis (z. B. Stummschalter am iPhone) statt einfach still zu bleiben",
+      "„Probe hören“ unter Mehr → Vorlesen sagt dir, ob die Sprachausgabe läuft und was du sonst prüfen musst"
+    ]
+  },
+  {
     v: "2.11", d: "2026-11-24", items: [
       "Neu: Vorlesen. Tippe bei einer Frage auf 🔊, dann liest die App Frage und Antworten vor (A, B, C … in der angezeigten Reihenfolge)",
       "Nach „Antwort prüfen“ liest 🔊 vor, ob es richtig war, welche Antworten stimmen und die Erklärung",

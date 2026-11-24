@@ -343,8 +343,13 @@
     const load = () => { try { voices = speechSynthesis.getVoices().filter(v => /^de([-_]|$)/i.test(v.lang)); } catch (e) { voices = []; } };
     if (has) { load(); try { speechSynthesis.addEventListener("voiceschanged", load); } catch (e) { speechSynthesis.onvoiceschanged = load; } }
     const conf = () => Object.assign({ auto: false, rate: 1, voice: "" }, S.settings.tts);
+    const apple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && "ontouchend" in document || /iPhone|iPad|iPod/.test(navigator.userAgent);
     function voice() {
       const c = conf(); if (!voices.length) load();
+      const chosen = voices.find(v => v.voiceURI === c.voice); if (chosen) return chosen;
+      // iPhone/iPad: keine Stimme fest vorgeben. Dort stehen auch nicht geladene „Erweitert“-Stimmen in der Liste,
+      // die dann stumm bleiben; mit lang = de-DE nimmt iOS die eingestellte deutsche Systemstimme.
+      if (apple) return null;
       return voices.find(v => v.voiceURI === c.voice)
         || voices.find(v => /natural|online|premium|enhanced|neural/i.test(v.name))
         || voices.find(v => /google/i.test(v.name))
@@ -369,23 +374,46 @@
       });
       return out;
     }
-    function stop() { token++; busyId = null; if (has) try { speechSynthesis.cancel(); } catch (e) {} mark(); }
+    // Nur abbrechen, wenn wirklich etwas läuft: Safari verschluckt ein speak() direkt nach cancel()
+    function stop() { token++; busyId = null; if (has) try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch (e) {} mark(); }
+    let started = false, unlocked = false;
+    // iOS gibt Sprache erst nach einer Berührung frei: beim ersten Tippen einmal still „sprechen“
+    function unlock() {
+      if (unlocked || !has) return; unlocked = true;
+      try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; u.lang = "de-DE"; speechSynthesis.speak(u); } catch (e) {}
+    }
+    if (has) ["pointerdown", "touchend", "keydown"].forEach(ev => document.addEventListener(ev, unlock, { once: true, passive: true }));
     function mark() { document.querySelectorAll("[data-speak]").forEach(b => { const on = b.dataset.speak === busyId; b.classList.toggle("on", on); b.innerHTML = on ? '⏹<span class="sl"> Stopp</span>' : '🔊<span class="sl"> Vorlesen</span>'; b.setAttribute("aria-label", on ? "Vorlesen stoppen" : "Vorlesen"); }); }
-    function speak(parts, id) {
+    let lastErr = "";
+    function speak(parts, id, report) {
       if (!has) { toast("Dein Browser kann leider nicht vorlesen"); return; }
+      const wasBusy = (() => { try { return speechSynthesis.speaking || speechSynthesis.pending; } catch (e) { return false; } })();
       stop(); const my = token, list = []; [].concat(parts).forEach(p => list.push(...pieces(p)));
       if (!list.length) return;
-      busyId = id || "x"; mark();
+      busyId = id || "x"; mark(); started = false; lastErr = "";
       const c = conf(), v = voice();
-      try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e) {}
-      list.forEach((txt, k) => {
-        const u = new SpeechSynthesisUtterance(txt);
-        u.lang = v ? v.lang : "de-DE"; if (v) u.voice = v; u.rate = +c.rate || 1; u.pitch = 1;
-        if (k === list.length - 1) u.onend = u.onerror = () => { if (my === token) { busyId = null; mark(); } };
-        speechSynthesis.speak(u);
-      });
+      const go = () => {
+        if (my !== token) return;
+        try { if (speechSynthesis.paused) speechSynthesis.resume(); } catch (e) {}
+        list.forEach((txt, k) => {
+          const u = new SpeechSynthesisUtterance(txt);
+          u.lang = v ? v.lang : "de-DE"; if (v) u.voice = v; u.rate = +c.rate || 1; u.pitch = 1; u.volume = 1;
+          u.onstart = () => { started = true; };
+          u.onerror = ev => { lastErr = (ev && ev.error) || "Fehler"; if (lastErr !== "interrupted" && lastErr !== "canceled" && my === token) { busyId = null; mark(); hint(); } };
+          if (k === list.length - 1) u.onend = () => { if (my === token) { busyId = null; mark(); } };
+          speechSynthesis.speak(u);
+        });
+      };
+      // Lief gerade etwas, kurz warten, damit der Abbruch durch ist (sonst bleibt Safari stumm)
+      if (wasBusy) setTimeout(go, 120); else go();
+      // Kommt nach 2,5 Sekunden nichts, Hinweis zeigen statt stumm zu bleiben
+      setTimeout(() => { if (my === token && !started && !(speechSynthesis.speaking && !apple)) { busyId = null; mark(); hint(); } }, 2500);
+      if (report) setTimeout(() => { if (my === token || started) report(started, lastErr); }, 2600);
     }
-    return { has, speak, stop, mark, voices: () => (load(), voices), busy: () => !!busyId && has && speechSynthesis.speaking, conf, id: () => busyId };
+    function hint() {
+      toast(apple ? "Kein Ton? Stummschalter am iPhone aus (kein Orange sichtbar) und Lautstärke hoch" : "Kein Ton? Lautstärke prüfen – unter Mehr → Vorlesen eine andere Stimme wählen");
+    }
+    return { has, apple, speak, stop, mark, voices: () => (load(), voices), busy: () => !!busyId && has && speechSynthesis.speaking, conf, id: () => busyId };
   })();
   // Text zum Vorlesen: Frage mit Antworten in der angezeigten Reihenfolge
   function sayQuestion(q, order) {
@@ -409,9 +437,10 @@
       <p class="muted">Mit 🔊 bei jeder Frage liest die App Frage und Antworten vor, nach dem Prüfen auch die Lösung mit Erklärung. Am PC geht es auch mit der Taste V.</p>
       <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="ttsauto" style="width:22px;height:22px;margin:0" ${c.auto ? "checked" : ""}> Jede Frage automatisch vorlesen</label>
       <label>Tempo</label><select id="ttsrate">${[[0.8, "Langsam"], [1, "Normal"], [1.15, "Etwas schneller"], [1.3, "Schnell"]].map(([v, n]) => `<option value="${v}" ${+c.rate === v ? "selected" : ""}>${n}</option>`).join("")}</select>
-      ${vs.length > 1 ? `<label>Stimme</label><select id="ttsvoice"><option value="">Automatisch (beste deutsche Stimme)</option>${vs.map(v => `<option value="${esc(v.voiceURI)}" ${c.voice === v.voiceURI ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select>` : ""}
+      ${vs.length > 1 ? `<label>Stimme</label><select id="ttsvoice"><option value="">Automatisch (${TTS.apple ? "deutsche Systemstimme" : "beste deutsche Stimme"})</option>${vs.map(v => `<option value="${esc(v.voiceURI)}" ${c.voice === v.voiceURI ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select>` : ""}
       ${vs.length ? "" : `<p class="muted">⚠️ Auf diesem Gerät ist keine deutsche Stimme installiert, dann klingt es englisch. <b>iPhone:</b> Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Deutsch. <b>Windows:</b> Einstellungen → Zeit und Sprache → Sprache → Deutsch → Sprachausgabe.</p>`}
-      <button class="btn sec" id="ttstest">▶ Probe hören</button></div>`;
+      <button class="btn sec" id="ttstest">▶ Probe hören</button><p class="muted" id="ttsres"></p>
+      ${TTS.apple ? `<p class="muted">📱 iPhone: Vorlesen ist stumm, solange der <b>Stummschalter</b> an der Seite an ist (oder der Lautlos-Modus über die Aktionstaste).</p>` : ""}</div>`;
   }
   function bindTts() {
     if (!$("#ttscard")) return;
@@ -419,7 +448,14 @@
     $("#ttsauto").onchange = ev => { set("auto", ev.target.checked); toast(ev.target.checked ? "Fragen werden automatisch vorgelesen" : "Nur noch auf Tippen vorlesen"); };
     $("#ttsrate").onchange = ev => { set("rate", +ev.target.value); TTS.speak("So schnell lese ich jetzt vor.", "probe"); };
     const vo = $("#ttsvoice"); if (vo) vo.onchange = ev => { set("voice", ev.target.value); TTS.speak("Hallo, so klingt diese Stimme.", "probe"); };
-    $("#ttstest").onclick = () => TTS.speak("Frage: Was ist bei Notwehr nach Paragraf 32 Strafgesetzbuch erlaubt? Antwort A: Die erforderliche Verteidigung gegen einen gegenwärtigen, rechtswidrigen Angriff.", "probe");
+    $("#ttstest").onclick = () => {
+      const b = $("#ttstest"); b.textContent = "Spricht …";
+      TTS.speak("Frage: Was ist bei Notwehr nach Paragraf 32 Strafgesetzbuch erlaubt? Antwort A: Die erforderliche Verteidigung gegen einen gegenwärtigen, rechtswidrigen Angriff.", "probe", (ok, err) => {
+        const r = $("#ttsres"); if (!r) return; b.textContent = "▶ Probe hören";
+        r.innerHTML = ok ? "✅ Die Sprachausgabe läuft. Hörst du trotzdem nichts, ist der Ton aus: " + (TTS.apple ? "<b>Stummschalter</b> an der Seite des iPhones umlegen (kein Orange sichtbar) und Lautstärke hoch." : "Lautstärke am Gerät hochdrehen.")
+          : "⚠️ Die Sprachausgabe startet nicht" + (err ? " (" + esc(err) + ")" : "") + ". " + (TTS.apple ? "Prüfe den <b>Stummschalter</b> und die Lautstärke. Falls es weiter nicht geht: Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen → Deutsch → eine Stimme laden." : "Wähle oben eine andere Stimme oder installiere eine deutsche Stimme.");
+      });
+    };
   }
   function prepOrder(q) { return shuffle(q.a.map((_, i) => i)); }
   function renderQ() {
