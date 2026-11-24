@@ -2,6 +2,16 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.5", d: "2026-11-24", items: [
+      "PC und Handy teilen jetzt dieselben Daten: unter Mehr → „PC und Handy verbinden“ einmal einen GitHub-Schlüssel eingeben, auf beiden Geräten",
+      "Abgeglichen werden Lernstand, eigene und importierte Fragen, Markierungen, Prüfungsergebnisse, Lernserie und Einstellungen – automatisch beim Öffnen, kurz nach jeder Antwort und alle 30 Sekunden",
+      "Hast du auf beiden Geräten schon gelernt, wird alles zusammengeführt: pro Frage zählt der neueste Stand, Gelöschtes bleibt gelöscht",
+      "Neue Ansicht für den PC: Menü als Leiste links, Startseite und Sachgebiete nebeneinander, Einstellungen in zwei Spalten",
+      "Der KI-Chat öffnet sich am PC als Fenster am rechten Rand, die Seite bleibt daneben sichtbar",
+      "Am PC als App installierbar (Chrome oder Edge: Symbol „App installieren“ in der Adresszeile); mit der Tastatur antworten wie bisher: 1–6 und Enter"
+    ]
+  },
+  {
     v: "2.4", d: "2026-11-19", items: [
       "KI deutlich schneller: neuer Modus „Schnell“ (Standard) mit dem schnelleren Modell Flash-Lite und minimaler Denkzeit",
       "Kürzere, auf den Punkt gebrachte Antworten; mehr bekommst du mit „Noch einfacher“ oder indem du nachfragst",

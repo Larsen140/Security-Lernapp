@@ -56,6 +56,16 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 ## Lernstand
 - Prozentzahl auf der Startseite = (sicher + 0,5 × „1× richtig“) / alle Fragen; unter 10 % mit einer Nachkommastelle. Absperrband: voller Teil = sicher, heller Teil = halbe Punkte.
 
+## PC-Ansicht und Geräte-Abgleich (ab 2.5)
+- Ab 980 px Breite: `#tabs` wird zur Seitenleiste links (mit `.brand`), `router()` setzt `body[data-page]`, danach richten sich die Raster in `styles.css` (Start, Themen, Einstellungen). Fragen/Prüfung bleiben 840 px schmal. Handy-Ansicht unverändert.
+- Abgleich über ein geheimes Gist im GitHub-Konto des Nutzers (Datei `slapp-sync.json`). Token (classic, Scope `gist`) nur in `slapp-sync` – nie ins Repo, nie ins Backup, nie ins Gist. KI-Schlüssel wird nie abgeglichen.
+- Zusammenführen in `mergeState()`; Löschungen brauchen einen Eintrag in `S.del` (`forget(id)`, Markierungen `"f:"+id`), Zurücksetzen setzt `S.resetAt`. Wer neue Daten in `S` einführt, muss sie in `mergeState()` und in der Liste in `syncNow()` ergänzen, sonst gehen sie beim Abgleich verloren.
+- Einstellungen ändern immer mit `S.settings._t = Date.now()`, sonst setzt sich die Änderung nicht auf dem anderen Gerät durch.
+- Test: zwei Browser-Kontexte mit nachgebautem GitHub (Request-Interception), siehe Verlauf 24.11.2026.
+
 ## Speicher (localStorage)
 - `slapp-v1` – Fortschritt, eigene Fragen, Prüfungen, Markierungen, Einstellungen, zuletzt gesehene Version (`seenVersion`)
 - `slapp-ai` – KI-Schlüssel und Modell
+- `slapp-sync` – GitHub-Token, Gist-ID, Benutzername, letzter Abgleich (nur auf dem Gerät)
+- `slapp-dev` – zufällige Geräte-ID für die Tageszählung
+- `slapp-exam` – laufende Prüfung (wird nicht abgeglichen)

@@ -10,9 +10,13 @@
     try { const raw = localStorage.getItem(KEY); if (raw) return Object.assign({}, defaults, JSON.parse(raw)); } catch (e) {}
     return JSON.parse(JSON.stringify(defaults));
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} syncSoon(); }
   S.settings = Object.assign({ showCount: true, sound: true, goal: 20 }, S.settings || {});
   S.days = S.days || {};
+  // Gelöschte eigene Fragen („id“) und entfernte Markierungen („f:id“) mit Zeitpunkt,
+  // damit der Abgleich zwischen Geräten sie nicht wieder zurückholt
+  S.del = S.del || {};
+  const forget = id => { S.del[id] = Date.now(); };
   // KI-Zugang wird getrennt gespeichert und ist NICHT im Backup enthalten
   const AIKEY = "slapp-ai";
   // Nur Google-Gemini-Schlüssel im Format „AQ.…“ werden akzeptiert
@@ -49,6 +53,11 @@
   // Lerntage: wie viele Fragen pro Tag beantwortet wurden (für Serie und Tagesziel)
   const dayKey = (d = new Date()) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   const today = () => S.days[dayKey()] || 0;
+  function deviceId() {
+    let id = null; try { id = localStorage.getItem("slapp-dev"); } catch (e) {}
+    if (!id) { id = "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); try { localStorage.setItem("slapp-dev", id); } catch (e) {} }
+    return id;
+  }
   function streak() {
     let n = 0; const d = new Date();
     if (!S.days[dayKey(d)]) d.setDate(d.getDate() - 1);
@@ -67,7 +76,10 @@
     const p = S.prog[q.id] || { n: 0, s: 0, w: 0 };
     p.n++; p.t = Date.now(); p.last = ok;
     if (ok) p.s++; else { p.s = 0; p.w++; }
-    S.prog[q.id] = p; S.days[dayKey()] = today() + 1; save();
+    const k = dayKey(); S.prog[q.id] = p; S.days[k] = today() + 1;
+    // Zusätzlich pro Gerät zählen, damit beim Abgleich die Antworten von PC und Handy zusammengezählt werden
+    S.dev = S.dev || {}; const mine = S.dev[deviceId()] = S.dev[deviceId()] || {}; mine[k] = (mine[k] || 0) + 1;
+    save();
   }
   function counts(list) {
     const c = [0, 0, 0, 0];
@@ -303,7 +315,7 @@
     html += `</div>`;
     $("#app").innerHTML = html;
     if (s.slide) { s.slide = false; const cd = $("#app .card"); if (cd) cd.classList.add("slidein"); }
-    $("#flag").onclick = () => { if (S.flags[q.id]) delete S.flags[q.id]; else S.flags[q.id] = 1; save(); renderQ(); };
+    $("#flag").onclick = () => { if (S.flags[q.id]) { delete S.flags[q.id]; forget("f:" + q.id); } else S.flags[q.id] = Date.now(); save(); renderQ(); };
     $("#aiq").onclick = () => openAI(q, s.checked ? s.sel : null, s.order);
     document.querySelectorAll(".ans").forEach(b => b.onclick = () => {
       const a = +b.dataset.a; const i = s.sel.indexOf(a);
@@ -963,7 +975,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
       const more = $("#omore"); if (more) more.onclick = () => { ownView.n += 30; renderOwn(); };
       box.querySelectorAll("[data-del]").forEach(b => b.onclick = () => {
         if (!confirm("Diese Frage löschen?")) return;
-        S.custom = S.custom.filter(c => c.id !== b.dataset.del); delete S.prog[b.dataset.del]; delete S.flags[b.dataset.del]; save();
+        S.custom = S.custom.filter(c => c.id !== b.dataset.del); delete S.prog[b.dataset.del]; delete S.flags[b.dataset.del]; forget(b.dataset.del); save();
         b.closest(".ownq").remove(); toast("Frage gelöscht");
       });
     };
@@ -1019,7 +1031,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     const idel = $("#impdel"); if (idel) idel.onclick = () => {
       const ids = S.custom.filter(c => c.imp).map(c => c.id);
       if (!confirm(ids.length + " importierte Fragen löschen?")) return;
-      S.custom = S.custom.filter(c => !c.imp); ids.forEach(id => { delete S.prog[id]; delete S.flags[id]; }); save(); customPage();
+      S.custom = S.custom.filter(c => !c.imp); ids.forEach(id => { delete S.prog[id]; delete S.flags[id]; forget(id); }); save(); customPage();
     };
   }
 
@@ -1043,18 +1055,19 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
       ${conf.key ? `<p>✅ Eingerichtet · Google Gemini · Modell: <b>${esc((conf.model || "").replace(/^models\//, ""))}</b></p><label>Antworten</label><select id="aispeed"><option value="schnell" ${conf.speed !== "gruendlich" ? "selected" : ""}>⚡ Schnell (Flash-Lite, kurz)</option><option value="gruendlich" ${conf.speed === "gruendlich" ? "selected" : ""}>🧠 Gründlich (Flash, etwas langsamer)</option></select>
       <button class="btn sec" id="aitest">🔍 KI testen</button><div id="ailog" class="muted" style="font-size:13px;word-break:break-word"></div><button class="btn ghost" id="aicopylog" style="display:none">📋 Testergebnis kopieren</button><button class="btn danger" id="aidel">Schlüssel entfernen</button>`
         : `<input type="password" id="aikey" placeholder="Gemini-Schlüssel (AQ.…)" autocomplete="off"><button class="btn sec" id="aisave">Speichern & testen</button>`}</div>
-      <div class="card"><h2>💾 Backup</h2><p class="muted">Dein Fortschritt wird nur auf diesem Gerät gespeichert. Mit einem Backup kannst du ihn sichern oder auf ein anderes Gerät übertragen.</p>
+      ${syncCard()}
+      <div class="card"><h2>💾 Backup</h2><p class="muted">Ohne Geräte-Abgleich liegt dein Fortschritt nur auf diesem Gerät. Mit einem Backup kannst du ihn zusätzlich als Datei sichern.</p>
       <button class="btn sec" id="exp">Backup sichern</button>
       <label class="btn sec" style="display:block">Backup laden<input type="file" id="imp" accept="application/json,.json" style="display:none"></label></div>
-      <div class="card"><h2>📲 Als App installieren</h2><p class="muted"><b>iPhone (Safari):</b> Teilen-Symbol → „Zum Home-Bildschirm“.<br><b>Android (Chrome):</b> Menü ⋮ → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“.<br>Danach funktioniert die App auch offline.</p></div>
+      <div class="card"><h2>📲 Als App installieren</h2><p class="muted"><b>iPhone (Safari):</b> Teilen-Symbol → „Zum Home-Bildschirm“.<br><b>Android (Chrome):</b> Menü ⋮ → „App installieren“ bzw. „Zum Startbildschirm hinzufügen“.<br><b>PC (Chrome oder Edge):</b> In der Adresszeile rechts auf das Symbol „App installieren“ ⊕ klicken. Die App öffnet sich dann in einem eigenen Fenster.<br>Danach funktioniert die App auch offline.</p></div>
       <div class="card"><h2>🗑 Zurücksetzen</h2><button class="btn danger" id="reset">Lernfortschritt löschen</button><p class="muted">Eigene Fragen bleiben erhalten.</p></div>
       <button class="btn ghost" data-go="#/neu">🆕 Was ist neu?</button>
       <div class="card"><p class="muted">Security LernApp · <a href="#/neu">Version ${esc(VERSION)}</a> · ${allQuestions().length} Fragen. Die Fragen sind selbst formuliert auf Grundlage der Gesetze (GG, GewO, BewachV, DSGVO, BDSG, BGB, StGB, StPO, WaffG, DGUV). Ohne Gewähr: Im Zweifel gilt der aktuelle Gesetzestext.</p></div>`;
     foot("");
-    $("#showc").onchange = ev => { S.settings.showCount = ev.target.checked; save(); toast("Gespeichert"); };
-    $("#sound").onchange = ev => { S.settings.sound = ev.target.checked; save(); if (ev.target.checked) SFX.ok(); toast(ev.target.checked ? "Töne an" : "Töne aus"); };
-    $("#goal").onchange = ev => { S.settings.goal = +ev.target.value; save(); toast("Tagesziel: " + ev.target.value + " Fragen"); };
-    $("#onlyown").onchange = ev => { S.settings.onlyOwn = ev.target.checked; save(); toast(ev.target.checked ? "Nur noch deine eigenen Fragen" : "Alle Fragen aktiv"); };
+    $("#showc").onchange = ev => { S.settings.showCount = ev.target.checked; S.settings._t = Date.now(); save(); toast("Gespeichert"); };
+    $("#sound").onchange = ev => { S.settings.sound = ev.target.checked; S.settings._t = Date.now(); save(); if (ev.target.checked) SFX.ok(); toast(ev.target.checked ? "Töne an" : "Töne aus"); };
+    $("#goal").onchange = ev => { S.settings.goal = +ev.target.value; S.settings._t = Date.now(); save(); toast("Tagesziel: " + ev.target.value + " Fragen"); };
+    $("#onlyown").onchange = ev => { S.settings.onlyOwn = ev.target.checked; S.settings._t = Date.now(); save(); toast(ev.target.checked ? "Nur noch deine eigenen Fragen" : "Alle Fragen aktiv"); };
     const del = $("#aidel"); if (del) del.onclick = () => { aiSave({}); settingsPage(); toast("Schlüssel entfernt"); };
     const logTo = el => line => { el.innerHTML += esc(line) + "<br>"; };
     const sv = $("#aisave"); if (sv) sv.onclick = async () => {
@@ -1098,11 +1111,181 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     };
     $("#imp").onchange = ev => {
       const f = ev.target.files[0]; if (!f) return;
-      const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); if (!d.prog) throw 0; S = Object.assign({}, defaults, d); S.settings = Object.assign({ showCount: true, sound: true, goal: 20 }, S.settings || {}); S.days = S.days || {}; save(); toast("Backup geladen ✅"); go("#/"); } catch (e) { toast("Ungültige Backup-Datei"); } };
+      const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); if (!d.prog) throw 0; S = Object.assign({}, defaults, d); S.settings = Object.assign({ showCount: true, sound: true, goal: 20 }, S.settings || {}); S.days = S.days || {}; S.del = S.del || {}; save(); toast("Backup geladen ✅"); go("#/"); } catch (e) { toast("Ungültige Backup-Datei"); } };
       r.readAsText(f);
     };
-    $("#reset").onclick = () => { if (confirm("Wirklich den gesamten Lernfortschritt löschen?")) { S.prog = {}; S.exams = []; S.flags = {}; save(); toast("Fortschritt gelöscht"); go("#/"); } };
+    bindSync();
+    $("#reset").onclick = () => { if (confirm("Wirklich den gesamten Lernfortschritt löschen?")) { S.prog = {}; S.exams = []; S.flags = {}; S.resetAt = Date.now(); save(); toast("Fortschritt gelöscht"); go("#/"); } };
   }
+
+  // ---------- Geräte-Abgleich über GitHub ----------
+  // Die Daten (slapp-v1) liegen als geheimes Gist im GitHub-Konto des Nutzers. Der Zugangsschlüssel (Token)
+  // bleibt nur auf dem Gerät (slapp-sync), ist nicht im Backup und nie im Repo. KI-Schlüssel werden nie abgeglichen.
+  const SYNCKEY = "slapp-sync", GH = "https://api.github.com", GFILE = "slapp-sync.json";
+  function syncConf() { try { return JSON.parse(localStorage.getItem(SYNCKEY)) || {}; } catch (e) { return {}; } }
+  function syncSave(c) { try { localStorage.setItem(SYNCKEY, JSON.stringify(c)); } catch (e) {} }
+  const tme = (x, k) => (x && x[k] && x[k].t) || 0;
+  const num = v => typeof v === "number" ? v : 1; // alte Markierungen hatten den Wert 1
+  // Zwei Stände zusammenführen: pro Frage gilt der neuere Lernstand, Listen werden vereinigt, Gelöschtes bleibt gelöscht
+  function mergeState(a, b) {
+    a = a || {}; b = b || {};
+    const del = Object.assign({}, a.del);
+    Object.keys(b.del || {}).forEach(k => { del[k] = Math.max(del[k] || 0, b.del[k]); });
+    const resetAt = Math.max(a.resetAt || 0, b.resetAt || 0);
+    const prog = {};
+    [a.prog || {}, b.prog || {}].forEach(src => Object.keys(src).forEach(id => {
+      const p = src[id]; if (!p || del[id] || (p.t || 0) < resetAt) return;
+      if (!prog[id] || (p.t || 0) > (prog[id].t || 0)) prog[id] = p;
+    }));
+    const seen = {}, custom = [];
+    (a.custom || []).concat(b.custom || []).forEach(c => { if (c && c.id && !seen[c.id] && !del[c.id]) { seen[c.id] = 1; custom.push(c); } });
+    const flags = {};
+    [a.flags || {}, b.flags || {}].forEach(src => Object.keys(src).forEach(id => {
+      const v = num(src[id]); if (del[id] || v <= (del["f:" + id] || 0) || (v > 1 && v < resetAt)) return;
+      flags[id] = Math.max(flags[id] || 0, v);
+    }));
+    if (resetAt) Object.keys(flags).forEach(id => { if (flags[id] === 1) delete flags[id]; });
+    const ex = {}; (a.exams || []).concat(b.exams || []).forEach(e => { if (e && e.d >= resetAt) ex[e.d] = e; });
+    const exams = Object.keys(ex).map(Number).sort((x, y) => x - y).map(d => ex[d]);
+    const days = Object.assign({}, a.days);
+    Object.keys(b.days || {}).forEach(k => { days[k] = Math.max(days[k] || 0, b.days[k]); });
+    // Antworten pro Gerät und Tag (nur die letzten 60 Tage), Tageszahl = Summe aller Geräte
+    const dev = {}, old = dayKey(new Date(Date.now() - 60 * 864e5));
+    [a.dev || {}, b.dev || {}].forEach(src => Object.keys(src).forEach(d => Object.keys(src[d] || {}).forEach(k => {
+      if (k < old) return; dev[d] = dev[d] || {}; dev[d][k] = Math.max(dev[d][k] || 0, src[d][k]);
+    })));
+    const sum = {}; Object.keys(dev).forEach(d => Object.keys(dev[d]).forEach(k => { sum[k] = (sum[k] || 0) + dev[d][k]; }));
+    Object.keys(sum).forEach(k => { days[k] = Math.max(days[k] || 0, sum[k]); });
+    const sa = a.settings || {}, sb = b.settings || {};
+    // Bei gleichem Stand gewinnt die gespeicherte Fassung, damit beide Geräte gleich enden
+    const settings = Object.assign({}, b.settings && (sb._t || 0) >= (sa._t || 0) ? sb : sa);
+    return Object.assign({}, a, { prog, custom, flags, exams, days, dev, settings, del, resetAt: resetAt || undefined });
+  }
+  // Inhalt ohne Rücksicht auf Reihenfolge vergleichbar machen (sonst würden sich zwei Geräte ewig gegenseitig neu hochladen)
+  function canon(x) {
+    const m = mergeState(x, {}); delete m.seenVersion;
+    m.custom = m.custom.slice().sort((p, q) => p.id < q.id ? -1 : 1);
+    const st = v => Array.isArray(v) ? "[" + v.map(st).join(",") + "]" : v && typeof v === "object" ? "{" + Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => JSON.stringify(k) + ":" + st(v[k])).join(",") + "}" : JSON.stringify(v);
+    return st(m);
+  }
+  async function gh(path, token, opt) {
+    opt = opt || {};
+    const headers = { Authorization: "Bearer " + token, Accept: "application/vnd.github+json" };
+    if (opt.body) headers["Content-Type"] = "application/json";
+    let r;
+    try { r = await fetch(GH + path, { method: opt.method || "GET", headers, body: opt.body, cache: "no-store" }); }
+    catch (e) { throw new Error("Keine Verbindung zu GitHub"); }
+    if (r.status === 401) throw Object.assign(new Error("Der GitHub-Schlüssel ist ungültig oder abgelaufen"), { code: 401 });
+    if (r.status === 404) throw Object.assign(new Error("Nicht gefunden"), { code: 404 });
+    if (r.status === 403 || r.status === 422) {
+      let m = ""; try { m = (await r.json()).message || ""; } catch (e) {}
+      throw new Error(/rate limit/i.test(m) ? "GitHub-Limit erreicht, später nochmal" : "GitHub erlaubt das nicht – hat der Schlüssel das Häkchen „gist“?");
+    }
+    if (!r.ok) throw new Error("GitHub-Fehler " + r.status);
+    return r.json();
+  }
+  async function findGist(token) {
+    for (let page = 1; page <= 5; page++) {
+      const list = await gh("/gists?per_page=100&page=" + page, token);
+      const g = list.find(x => x.files && x.files[GFILE]); if (g) return g.id;
+      if (list.length < 100) break;
+    }
+    return null;
+  }
+  const payload = () => JSON.stringify({ app: "Security LernApp", hinweis: "Abgleich zwischen deinen Geräten. Bitte nicht bearbeiten oder löschen.", at: Date.now(), data: Object.assign({}, S, { seenVersion: undefined }) });
+  async function readGist(token, id) {
+    const g = await gh("/gists/" + id, token), f = g.files && g.files[GFILE];
+    if (!f) return null;
+    let text = f.content;
+    if (f.truncated || !text) { const r = await fetch(f.raw_url, { cache: "no-store" }); if (!r.ok) throw new Error("Daten konnten nicht geladen werden"); text = await r.text(); }
+    try { return JSON.parse(text).data || null; } catch (e) { return null; }
+  }
+  let syncBusy = null, syncAgain = false, syncTimer = null, syncErr = "";
+  // save() ruft das schon beim Start auf, bevor dieser Teil geladen ist – darum abgesichert
+  function syncSoon() { try { if (!syncConf().token) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(), 3000); } catch (e) {} }
+  function syncNow() {
+    const c = syncConf(); if (!c.token || !navigator.onLine) return Promise.resolve(false);
+    if (syncBusy) { syncAgain = true; return syncBusy; }
+    clearTimeout(syncTimer);
+    syncBusy = (async () => {
+      let changed = false;
+      try {
+        if (!c.gist) c.gist = await findGist(c.token);
+        let remote = null;
+        if (c.gist) { try { remote = await readGist(c.token, c.gist); } catch (e) { if (e.code === 404) c.gist = null; else throw e; } }
+        if (remote) {
+          const before = canon(S), m = mergeState(S, remote);
+          if (canon(m) !== before) {
+            ["prog", "custom", "flags", "exams", "days", "dev", "settings", "del", "resetAt"].forEach(k => { S[k] = m[k]; });
+            S.settings = Object.assign({ showCount: true, sound: true, goal: 20 }, S.settings);
+            try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+            changed = true;
+          }
+        }
+        const files = {}; files[GFILE] = { content: payload() };
+        if (!c.gist) c.gist = (await gh("/gists", c.token, { method: "POST", body: JSON.stringify({ description: "Security LernApp – Abgleich (nicht löschen)", public: false, files }) })).id;
+        else if (!remote || canon(S) !== canon(remote)) await gh("/gists/" + c.gist, c.token, { method: "PATCH", body: JSON.stringify({ files }) });
+        c.last = Date.now(); syncErr = "";
+        const cur = syncConf(); if (cur.token === c.token) syncSave(Object.assign(cur, { gist: c.gist, last: c.last }));
+      } catch (e) { syncErr = e.message; }
+      syncBusy = null;
+      if (changed) refreshAfterSync();
+      showSyncState();
+      if (syncAgain) { syncAgain = false; syncNow(); }
+      return changed;
+    })();
+    return syncBusy;
+  }
+  // Nach dem Abgleich nur ruhige Seiten neu zeichnen, nie mitten in einer Fragenrunde oder Eingabe
+  function refreshAfterSync() {
+    const h = location.hash || "#/";
+    if (ai || /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || "")) return;
+    if (h === "#/" || h === "#/themen" || h.startsWith("#/thema/") || h === "#/pruefung" || h === "#/einstellungen") {
+      const y = window.scrollY; router(true); window.scrollTo(0, y);
+    }
+  }
+  function syncCard() {
+    const c = syncConf();
+    if (!c.token) return `<div class="card" id="synccard"><h2>🔄 PC und Handy verbinden</h2>
+      <p class="muted">Damit PC und Handy denselben Lernstand, dieselben eigenen Fragen und Prüfungen haben, speichert die App deine Daten in einem <b>privaten Speicher in deinem GitHub-Konto</b> (ein geheimes „Gist“). Das richtest du einmal pro Gerät ein:</p>
+      <ol class="steps"><li>Auf <a href="https://github.com/settings/tokens/new?scopes=gist&description=Security%20LernApp" target="_blank" rel="noopener">github.com/settings/tokens/new</a> anmelden (der Link setzt schon das richtige Häkchen „gist“).</li>
+      <li>Bei „Expiration“ am besten <b>No expiration</b> wählen, sonst musst du später einen neuen Schlüssel machen.</li>
+      <li>Unten auf <b>Generate token</b> tippen und den Schlüssel (beginnt mit „ghp_“) kopieren.</li>
+      <li>Hier einfügen und auf „Verbinden“ tippen. Auf dem zweiten Gerät denselben Schlüssel eingeben.</li></ol>
+      <input type="password" id="synctok" placeholder="GitHub-Schlüssel (ghp_…)" autocomplete="off"><button class="btn sec" id="syncgo">Verbinden</button>
+      <p class="muted">Der Schlüssel darf nur auf Gists zugreifen, bleibt nur auf diesem Gerät und ist nicht im Backup. Dein KI-Schlüssel wird nie übertragen. Schon vorhandene Daten auf beiden Geräten werden zusammengeführt, es geht nichts verloren.</p></div>`;
+    return `<div class="card" id="synccard"><h2>🔄 PC und Handy verbunden</h2>
+      <p>✅ GitHub-Konto <b>${esc(c.user || "")}</b></p><p class="muted" id="syncstate"></p>
+      <p class="muted">Lernstand, eigene Fragen, Markierungen, Prüfungsergebnisse und Einstellungen werden automatisch abgeglichen: beim Öffnen, kurz nach jeder Antwort und alle 30 Sekunden. Eine laufende Prüfung bleibt auf dem Gerät, auf dem du sie angefangen hast.</p>
+      <button class="btn sec" id="syncnow">Jetzt abgleichen</button><button class="btn danger" id="syncoff">Auf diesem Gerät trennen</button></div>`;
+  }
+  function showSyncState() {
+    const el = $("#syncstate"); if (!el) return;
+    const c = syncConf();
+    el.innerHTML = syncBusy ? "Gleiche ab …" : syncErr ? "⚠️ " + esc(syncErr) : c.last ? "Zuletzt abgeglichen: " + new Date(c.last).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Noch nicht abgeglichen";
+  }
+  function bindSync() {
+    showSyncState();
+    const go1 = $("#syncgo"); if (go1) go1.onclick = async () => {
+      const token = $("#synctok").value.trim(); if (!token) return toast("Bitte den GitHub-Schlüssel einfügen");
+      go1.disabled = true; go1.textContent = "Verbinde …";
+      try {
+        const u = await gh("/user", token);
+        syncSave({ token, user: u.login });
+        syncErr = ""; const changed = await syncNow();
+        if (syncErr) throw new Error(syncErr);
+        toast(changed ? "Verbunden ✅ Daten vom anderen Gerät übernommen" : "Verbunden ✅");
+        settingsPage();
+      } catch (e) { syncSave({}); toast(e.message); go1.disabled = false; go1.textContent = "Verbinden"; }
+    };
+    const now = $("#syncnow"); if (now) now.onclick = async () => { now.disabled = true; const p = syncNow(); showSyncState(); const ch = await p; now.disabled = false; toast(syncErr ? syncErr : ch ? "Neue Daten übernommen ✅" : "Alles aktuell ✅"); };
+    const off = $("#syncoff"); if (off) off.onclick = () => {
+      if (!confirm("Abgleich auf diesem Gerät beenden? Deine Daten bleiben hier und in GitHub erhalten.")) return;
+      syncSave({}); toast("Getrennt"); settingsPage();
+    };
+  }
+  setInterval(() => { if (!document.hidden) syncNow(); }, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) syncNow(); else if (syncTimer) syncNow(); });
 
   // ---------- Was ist neu ----------
   function updatesPage() {
@@ -1123,6 +1306,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     window.scrollTo(0, 0);
     const tab = { "": "start", themen: "lernen", thema: "lernen", kapitel: "lernen", lernen: "lernen", markiert: "lernen", pruefung: "pruefung", eigene: "fragen", einstellungen: "mehr", neu: "mehr" }[parts[0]] || "start";
     document.querySelectorAll("#tabs a").forEach(a => a.classList.toggle("on", a.dataset.tab === tab));
+    document.body.dataset.page = parts[0] || "start";
     if (parts[0] === "themen") topicsPage();
     else if (parts[0] === "thema") topicPage(parts[1]);
     else if (parts[0] === "kapitel") lessonPage(parts[1]);
@@ -1167,6 +1351,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     else if (h === "#/pruefung/laeuft" && (ev.key === "ArrowRight" || ev.key === "ArrowLeft")) { const b = $(ev.key === "ArrowRight" ? "#nextq" : "#prev:not([disabled])"); if (b) b.click(); }
   });
   router();
+  syncNow();
 
   let swReg = null;
   if ("serviceWorker" in navigator && location.protocol !== "file:") {

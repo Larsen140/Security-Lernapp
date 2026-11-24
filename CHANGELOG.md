@@ -7,7 +7,8 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.4 vom 19.11.2026
+- **Version:** 2.5 vom 24.11.2026
+- **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
 
@@ -33,6 +34,15 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.5 – 24.11.2026
+- Geräte-Abgleich über GitHub: Token (classic, nur Scope `gist`) liegt nur in `localStorage` `slapp-sync`, nicht im Backup, nie im Repo. Daten als geheimes Gist (`slapp-sync.json`), wird über die Gist-Liste gefunden oder angelegt
+- `mergeState()`: Lernstand pro Frage nach neuestem `t`, eigene Fragen als Vereinigung nach `id`, Prüfungen nach `d`, Tage als Maximum bzw. Summe pro Gerät (`S.dev`, letzte 60 Tage), Einstellungen nach `settings._t` (bei Gleichstand gewinnt die Fassung im Gist)
+- Löschungen werden mit Zeitpunkt in `S.del` gemerkt (eigene Fragen `id`, Markierungen `f:id`), Zurücksetzen über `S.resetAt`; Markierungen speichern jetzt den Zeitpunkt statt `1`
+- Abgleich beim Start, 3 s nach jeder Speicherung, alle 30 s und beim Zurückkehren in die App; hochgeladen wird nur, wenn sich der Inhalt unterscheidet (`canon()`, unabhängig von der Reihenfolge). Große Dateien über `raw_url`
+- Nach dem Abgleich werden nur ruhige Seiten neu gezeichnet (Start, Lernen, Sachgebiet, Prüfung-Start, Mehr), nie mitten in einer Runde. Die laufende Prüfung (`slapp-exam`) bleibt auf dem Gerät
+- PC-Ansicht ab 980 px: Seitenleiste statt Leiste unten, `body[data-page]` für Raster je Seite, KI-Chat als Schublade rechts, Hover-Effekte bei Maus
+
 
 ### 2.4 – 19.11.2026
 - KI-Tempo `conf.speed` („schnell“ Standard / „gruendlich“): Schnell nimmt zuerst Flash-Lite (`conf.lite`, `conf.fast`), Gründlich zuerst Flash
