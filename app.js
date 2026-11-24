@@ -187,6 +187,7 @@
       ${onlyOwn() ? `<div class="last">Fragen: nur deine eigenen (${S.custom.length}) · <a href="#/einstellungen" style="color:#FFCC5C">ändern</a></div>` : ""}</div>
       <div class="card daily"><div class="flame ${st ? "on" : ""}">🔥<b>${st}</b></div><div class="dinfo"><b>${st ? st + (st === 1 ? " Tag" : " Tage") + " in Folge" : "Starte deine Lernserie"}</b>
         <span class="muted">${td >= goal ? "Tagesziel geschafft ✅ " + td + " Fragen heute" : "Heute " + td + " von " + goal + " Fragen"}</span><div class="dbar"><i style="width:${gpct}%"></i></div></div></div>
+      ${countdown()}
       ${tipCard()}
       <button class="btn big" data-go="#/lernen/mix">▶ Weiterlernen<small>${c.rot ? "Fehler und neue Fragen zuerst" : "Neue und unsichere Fragen zuerst"}</small></button>
       <div class="grid2">
@@ -227,6 +228,17 @@
     const pct = Math.round(best.m * 100), t = best.t;
     const why = best.c.rot ? best.c.rot + (best.c.rot === 1 ? " Fehler" : " Fehler") + " offen" : pct ? "erst " + pct + " % sicher" : "noch nicht angefangen";
     return `<button class="tipcard" data-go="#/lernen/t-${t.id}"><span class="tico">${t.icon}</span><span class="tinf"><small>💡 Heute am meisten wert</small><b>${esc(t.short)} üben</b><span>${t.examCount} Fragen in der Prüfung · ${why}</span></span><span class="chev">›</span></button>`;
+  }
+  // Prüfungstermin: Tage bis zur Prüfung und wie viele Fragen pro Tag dafür nötig sind
+  function countdown() {
+    const d = S.settings.examDate; if (!d) return "";
+    const days = Math.round((new Date(d + "T00:00:00") - new Date(dayKey() + "T00:00:00")) / 864e5);
+    if (days < 0) return "";
+    if (days === 0) return `<div class="cdown today"><span class="cdn">🍀</span><span><b>Heute ist Prüfung!</b>Ruhig bleiben, jede Frage genau lesen. Viel Erfolg!</span></div>`;
+    const c = counts(allQuestions()), open = c.total - c.gruen;
+    const per = Math.ceil(open * 2 / days); // jede noch nicht sichere Frage braucht etwa zwei richtige Antworten
+    const goal = S.settings.goal || 20;
+    return `<div class="cdown"><span class="cdn"><b>${days}</b>${days === 1 ? "Tag" : "Tage"}</span><span><b>bis zur Prüfung am ${fmtDate(d)}</b>${open ? `Noch ${open} Fragen nicht sicher · etwa <b class="${per > goal ? "fail" : "pass"}">${per} Fragen pro Tag</b>${per > goal ? ` (dein Ziel: ${goal})` : ""}` : "Alle Fragen sitzen – jetzt nur noch wiederholen 💪"}</span></div>`;
   }
   // Kleine Zeile auf der Startseite, ob der Abgleich klappt
   function syncLine() {
@@ -322,7 +334,7 @@
       ? `<div class="seg">${s.list.map((_, k) => `<i class="${k < s.hist.length ? (s.hist[k] ? "ok" : "bad") : k === s.i ? "cur" : ""}"></i>`).join("")}</div>`
       : `<div class="progress"><div style="width:${s.hist.length / s.list.length * 100}%"></div></div>`;
     let html = `${seg}
-      <div class="qhead"><span><span class="qn">Frage <b>${s.i + 1}</b>/${s.list.length}</span><span class="pill">${t ? t.short : ""}</span>${q.own ? '<span class="pill">eigene</span>' : ""}</span>
+      <div class="qhead"><span><span class="qn">Frage <b>${s.i + 1}</b>/${s.list.length}</span><span class="pill">${t ? t.short : ""}</span>${q.own ? '<span class="pill">eigene</span>' : ""}${s.again && s.again[s.i] ? '<span class="pill again">🔁 nochmal</span>' : ""}</span>
       <span><button class="flagbtn" id="aiq">🤖 KI-Hilfe</button> <button class="flagbtn ${S.flags[q.id] ? "on" : ""}" id="flag">⭐ ${S.flags[q.id] ? "markiert" : "merken"}</button></span></div>
       <div class="card qcard">${s.combo >= 2 ? `<span class="combo${s.just ? " pop" : ""}">🔥 ${s.combo}</span>` : ""}<div class="qtext">${esc(q.q)}</div><div class="hint">${S.settings.showCount ? `<span class="count">👉 ${countText(q)}</span> · ${s.sel.length} gewählt` : "Wähle alle richtigen Antworten aus (eine oder mehrere)."}</div>`;
     const just = s.just; s.just = false;
@@ -358,10 +370,16 @@
       s.checked = true; s.just = true; const ok = isRight(q, s.sel);
       s.hist.push(ok);
       if (ok) { s.right++; s.combo++; s.best = Math.max(s.best, s.combo); SFX.ok(); if (s.combo >= 3) SFX.combo(s.combo); } else { s.combo = 0; SFX.bad(); }
+      // Falsch beantwortet: Die Frage kommt in dieser Runde nach 3 anderen Fragen noch einmal (einmal pro Frage)
+      if (!ok && !(s.again && s.again[s.i])) {
+        s.again = s.again || {}; s.redo = s.redo || {};
+        if (!s.redo[q.id]) { s.redo[q.id] = 1; const at = Math.min(s.i + 4, s.list.length);
+          const moved = {}; Object.keys(s.again).forEach(k => { moved[+k >= at ? +k + 1 : k] = 1; }); s.again = moved; s.again[at] = 1; s.list.splice(at, 0, q); }
+      }
       record(q, ok); if (s.focus && focus) { focus.n++; if (ok) focus.right++; } renderQ();
       const ex = $(".expl"); if (ex && ex.getBoundingClientRect().bottom > innerHeight - 90) ex.scrollIntoView({ behavior: calm() ? "auto" : "smooth", block: "center" });
     };
-    const nx = $("#next"); if (nx) nx.onclick = () => { s.i++; s.sel = []; s.checked = false; s.order = null; if (s.i >= s.list.length && s.focus) { s.list = pickSmart(allQuestions(), 20); s.i = 0; s.hist = []; s.slide = true; window.scrollTo(0, 0); renderQ(); } else if (s.i >= s.list.length) learnDone(); else { s.slide = true; window.scrollTo(0, 0); renderQ(); } };
+    const nx = $("#next"); if (nx) nx.onclick = () => { s.i++; s.sel = []; s.checked = false; s.order = null; if (s.i >= s.list.length && s.focus) { s.list = pickSmart(allQuestions(), 20); s.i = 0; s.hist = []; s.again = {}; s.redo = {}; s.slide = true; window.scrollTo(0, 0); renderQ(); } else if (s.i >= s.list.length) learnDone(); else { s.slide = true; window.scrollTo(0, 0); renderQ(); } };
   }
   function isRight(q, sel) { return sel.length === q.c.length && sel.every(a => q.c.includes(a)); }
   // Punkte wie in der IHK-Prüfung seit 1. Juli 2025: je richtig angekreuzter Antwort ein Punkt (Teilpunkte).
@@ -1230,7 +1248,9 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     $("#app").innerHTML = `<div class="card"><h2>🎯 Lernen</h2>
       <label>Tagesziel</label><select id="goal">${[10, 20, 30, 50, 80].map(n => `<option value="${n}" ${(S.settings.goal || 20) === n ? "selected" : ""}>${n} Fragen pro Tag</option>`).join("")}</select>
       <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="sound" style="width:22px;height:22px;margin:0" ${S.settings.sound !== false ? "checked" : ""}> Töne bei richtigen und falschen Antworten</label>
-      <p class="muted">Die Töne sind leise und laufen über die Medienlautstärke deines Handys.</p></div>
+      <p class="muted">Die Töne sind leise und laufen über die Medienlautstärke deines Handys.</p>
+      <label>📅 Mein Prüfungstermin</label><input type="date" id="exdate" value="${esc(S.settings.examDate || "")}" min="${dayKey()}">
+      <p class="muted">Die Startseite zeigt dann, wie viele Tage noch bleiben und wie viele Fragen du pro Tag schaffen solltest.</p></div>
       <div class="card"><h2>🔢 Anzeige</h2>
       <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="showc" style="width:22px;height:22px;margin:0" ${S.settings.showCount ? "checked" : ""}> Anzahl der richtigen Antworten bei jeder Frage anzeigen</label>
       <p class="muted">In der echten IHK-Prüfung wird das nicht angezeigt. Schalte es zum Üben ein und für eine realistische Prüfung aus.</p></div>
@@ -1254,6 +1274,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     foot("");
     $("#showc").onchange = ev => { S.settings.showCount = ev.target.checked; S.settings._t = Date.now(); save(); toast("Gespeichert"); };
     $("#sound").onchange = ev => { S.settings.sound = ev.target.checked; S.settings._t = Date.now(); save(); if (ev.target.checked) SFX.ok(); toast(ev.target.checked ? "Töne an" : "Töne aus"); };
+    $("#exdate").onchange = ev => { S.settings.examDate = ev.target.value || null; S.settings._t = Date.now(); save(); toast(ev.target.value ? "Prüfungstermin: " + fmtDate(ev.target.value) : "Prüfungstermin entfernt"); };
     $("#goal").onchange = ev => { S.settings.goal = +ev.target.value; S.settings._t = Date.now(); save(); toast("Tagesziel: " + ev.target.value + " Fragen"); };
     $("#onlyown").onchange = ev => { S.settings.onlyOwn = ev.target.checked; S.settings._t = Date.now(); save(); toast(ev.target.checked ? "Nur noch deine eigenen Fragen" : "Alle Fragen aktiv"); };
     const del = $("#aidel"); if (del) del.onclick = () => { aiSave({}); settingsPage(); toast("Schlüssel entfernt"); };

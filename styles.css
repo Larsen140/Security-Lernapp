@@ -502,3 +502,15 @@ body.focus .tabs{display:none!important}
   body[data-page=start] .examcard:not(.focuscard){grid-column:2}
   body[data-page=start] .examcard{margin:0}
 }
+
+/* ---------- Prüfungstermin, Wiederholung ---------- */
+.cdown{display:flex;align-items:center;gap:14px;background:var(--card);border-radius:16px;padding:12px 14px;margin-bottom:12px;box-shadow:var(--shadow)}
+.cdown .cdn{flex:none;width:62px;height:62px;border-radius:14px;background:var(--ink);color:var(--signal);display:grid;place-content:center;text-align:center;font:600 12px/1 var(--body)}
+.cdown .cdn b{display:block;font:700 28px/1 var(--display)}
+.cdown>span:last-child{font-size:14px;color:var(--muted);line-height:1.4}
+.cdown>span:last-child>b{display:block;font:700 18px/1.2 var(--display);color:var(--text);margin-bottom:2px}
+.cdown b.pass{color:var(--green,#1E9E62)} .cdown b.fail{color:var(--red,#D33)}
+.cdown.today .cdn{font-size:30px;background:#1E9E62}
+.pill.again{background:rgba(255,196,0,.2);color:var(--text)}
+input[type=date]{font:inherit}
+@media (min-width:980px){ body[data-page=start] .cdown{grid-column:1/-1;margin:0} }
