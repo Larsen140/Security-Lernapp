@@ -424,6 +424,27 @@
     }
     // Google hängt ans Ende oft ein kurzes Rauschen an. Von hinten in 20-ms-Stücken suchen, wo zuletzt
     // Sprache war (laut UND stimmhaft, also nicht nur Zischen), dort mit etwas Luft abschneiden und weich ausblenden.
+    // Ältere Modelle liefern rohes PCM (audio/L16), neuere eine WAV-Datei. In der WAV steht hinter den Tondaten
+    // ein „C2PA“-Block (Herkunftsnachweis „KI-erzeugt“, ca. 8 KB). Als Ton abgespielt war das das Rauschen am Ende.
+    // Darum bei WAV nur den „data“-Block nehmen.
+    function decodeAudio(parts) {
+      const bin = parts.map(p => atob(p.inlineData.data)).join(""), mime = parts[0].inlineData.mimeType || "";
+      let rate = +(mime.match(/rate=(\d+)/) || [0, 24000])[1], ch = 1, from = 0, to = bin.length;
+      const u32 = o => (bin.charCodeAt(o) | bin.charCodeAt(o + 1) << 8 | bin.charCodeAt(o + 2) << 16 | bin.charCodeAt(o + 3) << 24) >>> 0;
+      if (bin.slice(0, 4) === "RIFF" && bin.slice(8, 12) === "WAVE") {
+        let o = 12, found = false;
+        while (o + 8 <= bin.length) {
+          const id = bin.slice(o, o + 4), sz = u32(o + 4);
+          if (id === "fmt ") { ch = bin.charCodeAt(o + 10) | bin.charCodeAt(o + 11) << 8 || 1; rate = u32(o + 12) || rate; }
+          if (id === "data") { from = o + 8; to = Math.min(bin.length, sz && sz !== 0xFFFFFFFF ? from + sz : bin.length); found = true; break; }
+          o += 8 + sz + (sz & 1);
+        }
+        if (!found) { from = 44; to = bin.length; }
+      }
+      const n = Math.floor((to - from) / 2 / ch), pcm = new Float32Array(n);
+      for (let i = 0; i < n; i++) { const b = from + i * 2 * ch; let v = bin.charCodeAt(b) | (bin.charCodeAt(b + 1) << 8); if (v >= 32768) v -= 65536; pcm[i] = v / 32768; }
+      return { pcm, rate };
+    }
     function cleanTail(pcm, rate) {
       const win = Math.max(1, Math.round(rate * 0.02)), nWin = Math.floor(pcm.length / win);
       if (nWin < 10) return pcm;
@@ -462,9 +483,7 @@
           if (!r.ok) { last = apiError(r, d); if (r.status === 429 || r.status === 404 || r.status >= 500) continue; throw last; }
           const parts = ((d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts) || []).filter(p => p.inlineData && p.inlineData.data);
           if (!parts.length) { last = new Error("Keine Sprachausgabe von Google"); continue; }
-          const mime = parts[0].inlineData.mimeType || "", rate = +(mime.match(/rate=(\d+)/) || [0, 24000])[1];
-          const bin = parts.map(p => atob(p.inlineData.data)).join(""), n = bin.length >> 1, pcm = new Float32Array(n);
-          for (let i = 0; i < n; i++) { let v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); if (v >= 32768) v -= 65536; pcm[i] = v / 32768; }
+          const { pcm, rate } = decodeAudio(parts);
           const out = { pcm: cleanTail(pcm, rate), rate, who: "Google " + vname + " (" + model.replace(/^models\//, "") + ", " + rate + " Hz)" };
           return out;
         } catch (e) { last = e.status ? e : (e.message ? e : netError(e)); if (!/429|überlast|Limit|quota/i.test(last.message || "")) break; }

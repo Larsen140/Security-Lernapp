@@ -2,6 +2,12 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.17", d: "2026-11-25", items: [
+      "Rauschen am Ende jetzt wirklich weg: Die neue Google-Stimme schickt hinter dem Ton einen unhörbaren Herkunftsnachweis („KI-erzeugt“) mit, den die App bisher als Ton abgespielt hat. Der wird jetzt übersprungen",
+      "Auch das leise Knacken ganz am Anfang ist weg"
+    ]
+  },
+  {
     v: "2.16", d: "2026-11-25", items: [
       "Kein Rauschen mehr am Ende: Das Störgeräusch, das Google ans Ende der Frage und der Antworten hängt, wird jetzt abgeschnitten und sanft ausgeblendet",
       "Zwischen Frage und Antworten gibt es eine kurze natürliche Pause"

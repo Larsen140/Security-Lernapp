@@ -68,7 +68,7 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 - Nutzer schlief beim Lernen ein und wollte konzentrierter bleiben. `#/fokus` → `startFocus()`, Lernen unter `#/lernen/fokus`, Zustand `focus` nur im Speicher (nicht gespeichert). Weck-Hinweis nach `WAKE_MS` (60 s) ohne Eingabe. Jede andere Route beendet die Runde (`router()`).
 
 ## Vorlesen (ab 2.11)
-- Natürliche Stimme (ab 2.13): Gemini-TTS mit dem AQ-Schlüssel (`geminiAudio()`), Standard wenn ein Schlüssel da ist; sonst/bei Fehler Gerätestimme. Nutzer fand die iPhone-Stimme unverständlich, die Gemini-Stimme „super“. Keine Anweisungen vor den Text schreiben, das Modell liest sie mit vor. Vorabladen nur bei aktiver Nutzung (Tageslimit bei Google).
+- Natürliche Stimme (ab 2.13): Gemini-TTS mit dem AQ-Schlüssel (`geminiAudio()`), Standard wenn ein Schlüssel da ist; sonst/bei Fehler Gerätestimme. Nutzer fand die iPhone-Stimme unverständlich, die Gemini-Stimme „super“. Keine Anweisungen vor den Text schreiben, das Modell liest sie mit vor. Vorabladen nur bei aktiver Nutzung (Tageslimit bei Google). Neuere TTS-Modelle liefern WAV mit `C2PA`-Block am Ende – immer über `decodeAudio()` dekodieren, nie die ganzen Bytes als PCM.
 - `TTS` (Web Speech API, nur deutsche Stimmen, Roboterstimmen gefiltert), Knopf `#speak` über `speakBtn()`/`bindSpeak()`, Einstellungen `S.settings.tts`. Abkürzungsliste `WORDS` im `TTS`-Modul erweitern, wenn etwas falsch ausgesprochen wird. Test: `speechSynthesis` per `Object.defineProperty` nachbauen (direkte Zuweisung greift in Chrome nicht).
 
 ## Speicher (localStorage)

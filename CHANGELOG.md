@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.16 vom 25.11.2026
+- **Version:** 2.17 vom 25.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,10 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.17 – 25.11.2026
+- Ursache des Rauschens gefunden (im Chrome des Nutzers gemessen): `gemini-3.8-flash-tts` liefert `audio/wav` statt rohem PCM, mit `fmt `-, `data`- und einem ~7,6 KB `C2PA`-Block (Content Credentials) am Ende. Der wurde als Ton dekodiert (≈160 ms Rauschen), der 44-Byte-Kopf als Knacken. `decodeAudio()` liest bei RIFF/WAVE nur den `data`-Block und nimmt Rate/Kanäle aus `fmt `
+
 
 ### 2.16 – 25.11.2026
 - Gemini-TTS hängt am Ende Rauschen an: `cleanTail()` sucht von hinten das letzte 20-ms-Stück mit Sprache (laut und stimmhaft: RMS ≥ 12 % des Maximums, Nulldurchgangsrate < 0,25), schneidet 160 ms danach ab und blendet 60 ms aus; Anfang 10 ms eingeblendet. 250 ms Pause zwischen den Teilen
