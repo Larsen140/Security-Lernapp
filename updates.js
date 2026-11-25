@@ -2,6 +2,12 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "2.16", d: "2026-11-25", items: [
+      "Kein Rauschen mehr am Ende: Das Störgeräusch, das Google ans Ende der Frage und der Antworten hängt, wird jetzt abgeschnitten und sanft ausgeblendet",
+      "Zwischen Frage und Antworten gibt es eine kurze natürliche Pause"
+    ]
+  },
+  {
     v: "2.15", d: "2026-11-24", items: [
       "Der fremde Satz am Anfang ist weg: Die Stimme liest jetzt nur noch Frage und Antworten vor",
       "Schneller: Die Frage wird zuerst geladen und gesprochen, die Antworten laden gleichzeitig nach",

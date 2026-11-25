@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.15 vom 24.11.2026
+- **Version:** 2.16 vom 25.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,10 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 2.16 – 25.11.2026
+- Gemini-TTS hängt am Ende Rauschen an: `cleanTail()` sucht von hinten das letzte 20-ms-Stück mit Sprache (laut und stimmhaft: RMS ≥ 12 % des Maximums, Nulldurchgangsrate < 0,25), schneidet 160 ms danach ab und blendet 60 ms aus; Anfang 10 ms eingeblendet. 250 ms Pause zwischen den Teilen
+
 
 ### 2.15 – 24.11.2026
 - Gemini-TTS las die Stil-Anweisung mit vor: jetzt nur noch der reine Text (+ `languageCode`). Tempo-Einstellung gilt nur für die Gerätestimme

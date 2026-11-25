@@ -422,6 +422,30 @@
       job.catch(() => cache.delete(key));
       return job;
     }
+    // Google hängt ans Ende oft ein kurzes Rauschen an. Von hinten in 20-ms-Stücken suchen, wo zuletzt
+    // Sprache war (laut UND stimmhaft, also nicht nur Zischen), dort mit etwas Luft abschneiden und weich ausblenden.
+    function cleanTail(pcm, rate) {
+      const win = Math.max(1, Math.round(rate * 0.02)), nWin = Math.floor(pcm.length / win);
+      if (nWin < 10) return pcm;
+      const rms = new Float32Array(nWin), zcr = new Float32Array(nWin);
+      for (let w = 0; w < nWin; w++) {
+        let e = 0, z = 0; const o = w * win;
+        for (let i = 0; i < win; i++) { const v = pcm[o + i]; e += v * v; if (i && (v >= 0) !== (pcm[o + i - 1] >= 0)) z++; }
+        rms[w] = Math.sqrt(e / win); zcr[w] = z / win;
+      }
+      const peak = rms.reduce((m, v) => Math.max(m, v), 0); if (!peak) return pcm;
+      const loud = Math.max(0.02, peak * 0.12);
+      let last = nWin - 1;
+      while (last > 0 && !(rms[last] >= loud && zcr[last] < 0.25)) last--;
+      let first = 0;
+      while (first < last && rms[first] < peak * 0.03) first++;
+      const start = Math.max(0, (first - 2) * win);
+      const end = Math.min(pcm.length, (last + 1) * win + Math.round(rate * 0.16)); // 160 ms Luft für Endungen wie „s“ oder „t“
+      const out = pcm.slice(start, end), fade = Math.min(out.length, Math.round(rate * 0.06)), fin = Math.min(out.length, Math.round(rate * 0.01));
+      for (let i = 0; i < fade; i++) out[out.length - 1 - i] *= i / fade;
+      for (let i = 0; i < fin; i++) out[i] *= i / fin;
+      return out;
+    }
     async function fetchAudio(text, vname, ai) {
       const mk = withLang => JSON.stringify({
         contents: [{ parts: [{ text }] }], // nur der Text: Anweisungen davor liest das Modell sonst mit vor
@@ -441,7 +465,7 @@
           const mime = parts[0].inlineData.mimeType || "", rate = +(mime.match(/rate=(\d+)/) || [0, 24000])[1];
           const bin = parts.map(p => atob(p.inlineData.data)).join(""), n = bin.length >> 1, pcm = new Float32Array(n);
           for (let i = 0; i < n; i++) { let v = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8); if (v >= 32768) v -= 65536; pcm[i] = v / 32768; }
-          const out = { pcm, rate, who: "Google " + vname + " (" + model.replace(/^models\//, "") + ", " + rate + " Hz)" };
+          const out = { pcm: cleanTail(pcm, rate), rate, who: "Google " + vname + " (" + model.replace(/^models\//, "") + ", " + rate + " Hz)" };
           return out;
         } catch (e) { last = e.status ? e : (e.message ? e : netError(e)); if (!/429|überlast|Limit|quota/i.test(last.message || "")) break; }
       }
@@ -468,6 +492,8 @@
             src.onended = () => res();
             src.start(); started = true; mark(); if (report && k === 0) report(true, "");
           });
+          if (my !== token) return;
+          if (k < jobs.length - 1) await new Promise(r => setTimeout(r, 250));
           if (my !== token) return;
         }
         src = null; busyId = null; mark();
