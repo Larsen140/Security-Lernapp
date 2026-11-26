@@ -587,3 +587,16 @@ input[type=date]{font:inherit}
   main{padding-bottom:calc(110px + env(safe-area-inset-bottom))}
 }
 @media (prefers-reduced-motion:reduce){ .idphoto .val,.gring .val{transition:none} }
+
+/* ---------- Verstehen statt raten (3.2) ---------- */
+.sticky-foot .btn.idk{flex:0 0 auto;width:auto;padding-left:16px;padding-right:16px}
+.expl.idk{background:color-mix(in srgb,var(--signal) 12%,var(--card));border-left-color:var(--signal)}
+.expl.idk .vico{background:var(--signal);color:var(--ink)}
+.why{margin-top:10px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--card) 70%,var(--bg))}
+.why b{display:block;font:700 16px/1.2 var(--display);margin-bottom:4px}
+.why p{margin:0;line-height:1.5}
+.why.load p{color:var(--muted);background:linear-gradient(90deg,var(--muted) 0 40%,var(--text) 50%,var(--muted) 60% 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:shine 1.6s linear infinite}
+@keyframes shine{from{background-position:100% 0}to{background-position:-100% 0}}
+.whybtn,.guessbtn{display:inline-block;margin-top:10px;background:none;border:1px solid var(--line);border-radius:999px;padding:7px 12px;font:600 14px var(--body);color:var(--text);cursor:pointer}
+.guessbtn{color:var(--muted);margin-left:0}
+@media (prefers-reduced-motion:reduce){ .why.load p{animation:none;-webkit-text-fill-color:currentColor} }

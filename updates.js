@@ -2,6 +2,14 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "3.2", d: "2026-11-26", items: [
+      "Verstehen statt raten: Neuer Knopf „🤷 Weiß nicht“. Statt zu raten siehst du sofort die Lösung, und die Frage kommt in der Runde nochmal",
+      "Richtig, aber nur geraten? Tippe auf „🎲 War nur geraten“. Dann zählt die Frage nicht als gewusst und kommt wieder",
+      "💡 „Warum?“ bei jeder Lösung: Hat eine Frage keine Erklärung (z. B. deine importierten), erklärt die KI kurz den Grund und gibt dir einen Merksatz. Die Erklärung wird gespeichert und auch aufs andere Gerät übertragen",
+      "Beim Vorlesen wird die Erklärung mit vorgelesen"
+    ]
+  },
+  {
     v: "3.1", d: "2026-11-26", items: [
       "„Weiterlernen“ geht jetzt nicht mehr nur bis 20, sondern genau bis zu deinem Tagesziel. Hörst du zwischendurch auf, macht die nächste Runde mit den restlichen Fragen weiter",
       "Auf dem Knopf steht, wie viele Fragen bis zum Tagesziel noch fehlen. Ist das Ziel geschafft, gibt es 20 Fragen extra"

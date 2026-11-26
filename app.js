@@ -627,7 +627,7 @@
   }
   function sayResult(q, order, sel) {
     const ok = isRight(q, sel), right = order.map((ai, k) => q.c.includes(ai) ? String.fromCharCode(65 + k) + ": " + q.a[ai] : null).filter(Boolean);
-    return [(ok ? "Richtig!" : "Leider falsch.") + " " + (right.length === 1 ? "Richtig ist " : "Richtig sind ") + right.join(", und ") + ".", q.e || ""];
+    return [(ok ? "Richtig!" : sel.length ? "Leider falsch." : "") + " " + (right.length === 1 ? "Richtig ist " : "Richtig sind ") + right.join(", und ") + ".", q.e || q.ke || ""];
   }
   const speakBtn = id => TTS.has ? `<button class="flagbtn speakbtn" id="speak" aria-label="Vorlesen">🔊<span class="sl"> Vorlesen</span></button>` : "";
   function bindSpeak(id, parts) {
@@ -695,15 +695,31 @@
       html += `<button class="ans ${cls}" data-a="${ai}" ${s.checked ? "disabled" : ""} style="--k:${k}" aria-label="Antwort ${L}"><span class="box">${mark}</span><span>${esc(q.a[ai])}</span></button>`;
     });
     if (s.checked) {
-      const ok = isRight(q, s.sel);
+      const idk = s.idk === s.i, guessed = s.guessed && s.guessed[s.i], ok = !idk && !guessed && isRight(q, s.sel);
       const praise = ["Richtig!", "Stark!", "Genau!", "Sitzt!", "Sauber!"][s.i % 5];
-      html += `<div class="expl ${ok ? "ok" : "bad"}"><div class="vhead"><span class="vico">${ok ? "✓" : "✗"}</span><b>${ok ? praise : "Leider falsch"}</b>${ok && s.combo >= 3 ? `<span class="vsub">${s.combo} in Folge 🔥</span>` : !ok ? `<span class="vsub">Richtig ist ${q.c.length === 1 ? "die grün markierte Antwort" : "grün markiert"}</span>` : ""}</div>${q.e ? `<p>${esc(q.e)}</p>` : ""}${q.p ? `<span class="para">📌 ${esc(q.p)}</span>` : ""}</div>`;
+      const head = idk ? "Gut, dass du nicht geraten hast" : guessed ? "Ehrlich – kommt nochmal dran" : ok ? praise : "Leider falsch";
+      const sub = idk || guessed ? "Lies dir die Erklärung durch, die Frage kommt gleich wieder" : ok && s.combo >= 3 ? s.combo + " in Folge 🔥" : !ok ? "Richtig ist " + (q.c.length === 1 ? "die grün markierte Antwort" : "grün markiert") : "";
+      const why = q.e || q.ke;
+      html += `<div class="expl ${ok ? "ok" : idk || guessed ? "idk" : "bad"}"><div class="vhead"><span class="vico">${ok ? "✓" : idk || guessed ? "?" : "✗"}</span><b>${head}</b>${sub ? `<span class="vsub">${sub}</span>` : ""}</div>
+        ${why ? `<div class="why"><b>💡 Warum?</b><p>${esc(why)}</p></div>` : aiConf().key ? `<div class="why load" id="why"><b>💡 Warum?</b><p>Die KI erklärt es dir kurz …</p></div>` : `<button class="whybtn" id="whyai">💡 Warum ist das so? KI fragen</button>`}
+        ${q.p ? `<span class="para">📌 ${esc(q.p)}</span>` : ""}
+        ${isRight(q, s.sel) && !idk && !guessed ? `<button class="guessbtn" id="guess">🎲 War nur geraten</button>` : ""}</div>`;
     }
     html += `</div>`;
     $("#app").innerHTML = html;
     if (s.slide) { s.slide = false; const cd = $("#app .card"); if (cd) cd.classList.add("slidein"); }
     $("#flag").onclick = () => { if (S.flags[q.id]) { delete S.flags[q.id]; forget("f:" + q.id); } else S.flags[q.id] = Date.now(); save(); renderQ(); };
     $("#aiq").onclick = () => openAI(q, s.checked ? s.sel : null, s.order);
+    const gb = $("#guess"); if (gb) gb.onclick = () => {
+      // Richtig, aber geraten: zählt nicht als gewusst, die Frage kommt in dieser Runde nochmal
+      s.guessed = s.guessed || {}; s.guessed[s.i] = 1; s.right = Math.max(0, s.right - 1); s.combo = 0;
+      if (s.hist.length) s.hist[s.hist.length - 1] = false;
+      const p = S.prog[q.id]; if (p) { p.s = 0; p.last = false; p.w = (p.w || 0) + 1; p.t = Date.now(); save(); }
+      if (focus && s.focus) focus.right = Math.max(0, focus.right - 1);
+      requeue(s, q); SFX.tap(); renderQ();
+    };
+    const wa = $("#whyai"); if (wa) wa.onclick = () => openAI(q, s.sel, s.order);
+    if ($("#why")) explainWhy(q, s.sel, s.order);
     // Vorlesen: vor dem Prüfen Frage und Antworten, danach das Ergebnis mit Erklärung
     const sayKey = "l" + s.i + (s.checked ? "c" : "q") + q.id;
     bindSpeak(sayKey, () => s.checked ? sayResult(q, s.order, s.sel) : sayQuestion(q, s.order));
@@ -714,23 +730,53 @@
       const a = +b.dataset.a; const i = s.sel.indexOf(a);
       if (i >= 0) s.sel.splice(i, 1); else s.sel.push(a); SFX.tap(); renderQ();
     });
-    if (!s.checked) foot(`<button class="btn" id="check" ${s.sel.length ? "" : "disabled"}>Antwort prüfen</button>`);
+    if (!s.checked) foot(`<button class="btn sec idk" id="idk" title="Nicht raten – Lösung ansehen, die Frage kommt wieder">🤷 Weiß nicht</button><button class="btn" id="check" ${s.sel.length ? "" : "disabled"}>Antwort prüfen</button>`);
     else foot(`<button class="btn" id="next">${s.i + 1 < s.list.length || s.focus ? "Nächste Frage ▶" : "Auswertung ▶"}</button>`);
     if (s.focus) focusPill();
+    // „Weiß nicht“ zählt wie falsch: Lösung sofort sehen statt raten, die Frage kommt in der Runde nochmal
+    const idk = $("#idk"); if (idk) idk.onclick = () => { s.sel = []; s.idk = s.i; $("#check").disabled = false; $("#check").click(); };
     const ch = $("#check"); if (ch) ch.onclick = () => {
-      s.checked = true; s.just = true; const ok = isRight(q, s.sel);
+      s.checked = true; s.just = true; const ok = s.idk !== s.i && isRight(q, s.sel);
       s.hist.push(ok);
       if (ok) { s.right++; s.combo++; s.best = Math.max(s.best, s.combo); SFX.ok(); if (s.combo >= 3) SFX.combo(s.combo); } else { s.combo = 0; SFX.bad(); }
       // Falsch beantwortet: Die Frage kommt in dieser Runde nach 3 anderen Fragen noch einmal (einmal pro Frage)
-      if (!ok && !(s.again && s.again[s.i])) {
-        s.again = s.again || {}; s.redo = s.redo || {};
-        if (!s.redo[q.id]) { s.redo[q.id] = 1; const at = Math.min(s.i + 4, s.list.length);
-          const moved = {}; Object.keys(s.again).forEach(k => { moved[+k >= at ? +k + 1 : k] = 1; }); s.again = moved; s.again[at] = 1; s.list.splice(at, 0, q); }
-      }
+      if (!ok) requeue(s, q);
       record(q, ok); if (s.focus && focus) { focus.n++; if (ok) focus.right++; } renderQ();
       const ex = $(".expl"); if (ex && ex.getBoundingClientRect().bottom > innerHeight - 90) ex.scrollIntoView({ behavior: calm() ? "auto" : "smooth", block: "center" });
     };
     const nx = $("#next"); if (nx) nx.onclick = () => { s.i++; s.sel = []; s.checked = false; s.order = null; if (s.i >= s.list.length && s.focus) { s.list = pickSmart(allQuestions(), 20); s.i = 0; s.hist = []; s.again = {}; s.redo = {}; s.slide = true; window.scrollTo(0, 0); renderQ(); } else if (s.i >= s.list.length) learnDone(); else { s.slide = true; window.scrollTo(0, 0); renderQ(); } };
+  }
+  function requeue(s, q) {
+    if (s.again && s.again[s.i]) return;
+    s.again = s.again || {}; s.redo = s.redo || {};
+    if (s.redo[q.id]) return; s.redo[q.id] = 1;
+    const at = Math.min(s.i + 4, s.list.length), moved = {};
+    Object.keys(s.again).forEach(k => { moved[+k >= at ? +k + 1 : k] = 1; });
+    const mg = {}; Object.keys(s.guessed || {}).forEach(k => { mg[+k >= at ? +k + 1 : k] = 1; }); s.guessed = mg;
+    if (s.idk != null && s.idk >= at) s.idk++;
+    s.again = moved; s.again[at] = 1; s.list.splice(at, 0, q);
+  }
+  // Kurze KI-Erklärung für Fragen ohne eigene Erklärung (importierte Fragen). Wird an der Frage gespeichert
+  // und damit auch auf das andere Gerät übertragen; jede Frage kostet so nur einmal eine Anfrage.
+  const whyJobs = {};
+  function explainWhy(q, sel, order) {
+    const el = () => $("#why"), conf = aiConf();
+    const L = ai => String.fromCharCode(65 + order.indexOf(ai));
+    const msgs = [{ role: "user", content: `Frage: ${q.q}\n${order.map((ai, k) => String.fromCharCode(65 + k) + ") " + q.a[ai]).join("\n")}\nRichtig: ${q.c.map(L).sort().join(", ")}` +
+      (sel.length ? `\nIch habe gewählt: ${sel.map(L).sort().join(", ")}` : "\nIch wusste es nicht.") +
+      `\n\nErkläre mir in höchstens 3 kurzen Sätzen, WARUM die richtigen Antworten stimmen (mit Paragraf, wenn passend)` + (sel.some(a => !q.c.includes(a)) ? " und warum meine falsche Wahl nicht stimmt" : "") +
+      `. Erkläre den Grund, nicht nur die Lösung. Schreib danach in eine neue Zeile „Merksatz: …“ mit höchstens 12 Wörtern. Kein Markdown, keine Aufzählung.` }];
+    const job = whyJobs[q.id] || (whyJobs[q.id] = callAI(conf, msgs).then(t => String(t).replace(/[*#_`]/g, "").trim()));
+    job.then(txt => {
+      const c = S.custom.find(x => x.id === q.id); if (c) { c.ke = txt; save(); } q.ke = txt;
+      const e = el(); if (!e || !session || session.list[session.i] !== q) return;
+      e.classList.remove("load"); e.querySelector("p").innerHTML = esc(txt).replace(/\n+/g, "<br>").replace(/Merksatz:/, "<b>Merksatz:</b>");
+    }).catch(err => {
+      delete whyJobs[q.id];
+      const e = el(); if (!e) return; e.classList.remove("load");
+      e.innerHTML = `<b>💡 Warum?</b><p class="muted">Die KI ist gerade nicht erreichbar (${esc(err.message || "Fehler")}).</p><button class="whybtn" id="whyretry">Nochmal versuchen</button>`;
+      $("#whyretry").onclick = () => { e.classList.add("load"); e.innerHTML = "<b>💡 Warum?</b><p>Die KI erklärt es dir kurz …</p>"; explainWhy(q, sel, order); };
+    });
   }
   function isRight(q, sel) { return sel.length === q.c.length && sel.every(a => q.c.includes(a)); }
   // Punkte wie in der IHK-Prüfung seit 1. Juli 2025: je richtig angekreuzter Antwort ein Punkt (Teilpunkte).
@@ -1706,7 +1752,12 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
       if (!prog[id] || (p.t || 0) > (prog[id].t || 0)) prog[id] = p;
     }));
     const seen = {}, custom = [];
-    (a.custom || []).concat(b.custom || []).forEach(c => { if (c && c.id && !seen[c.id] && !del[c.id]) { seen[c.id] = 1; custom.push(c); } });
+    (a.custom || []).concat(b.custom || []).forEach(c => {
+      if (!c || !c.id || del[c.id]) return;
+      if (!seen[c.id]) { seen[c.id] = c; custom.push(c); return; }
+      // KI-Erklärung von einem Gerät auch auf dem anderen behalten (sonst laden sich die Geräte gegenseitig hin und her)
+      if (c.ke && !seen[c.id].ke) { const i = custom.indexOf(seen[c.id]); custom[i] = seen[c.id] = Object.assign({}, seen[c.id], { ke: c.ke }); }
+    });
     const flags = {};
     [a.flags || {}, b.flags || {}].forEach(src => Object.keys(src).forEach(id => {
       const v = num(src[id]); if (del[id] || v <= (del["f:" + id] || 0) || (v > 1 && v < resetAt)) return;

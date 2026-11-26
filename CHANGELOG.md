@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 3.1 vom 26.11.2026
+- **Version:** 3.2 vom 26.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,11 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 3.2 – 26.11.2026
+- Nutzer rät und merkt sich nur die richtigen Antworten. Neu: „Weiß nicht“ (`#idk`, `s.idk`) zählt wie falsch und reiht neu ein; „War nur geraten“ (`#guess`, `s.guessed`) setzt den Lernstand der Frage zurück (`s = 0`, `last = false`) und reiht neu ein; `requeue()` fasst das Wiedereinreihen zusammen
+- `explainWhy()`: KI-Erklärung mit Merksatz für Fragen ohne `e`, gespeichert als `ke` an der eigenen Frage; `mergeState()` behält `ke` beim Zusammenführen. Ohne Schlüssel Knopf zum KI-Chat
+
 
 ### 3.1 – 26.11.2026
 - `startLearn("mix")`: Rundenlänge = `dailyGoal() − today()` (Titel „Tagesziel“), nach erreichtem Ziel 20; Knopf auf der Startseite zeigt die Restzahl
