@@ -236,7 +236,7 @@
       <div class="tape"><i id="tape" data-w="${pctSafe}"></i><i id="tape2" class="half" data-l="${pctSafe}" data-w="${pctHalf}"></i></div>
       ${onlyOwn() ? `<div class="last">Fragen: nur deine eigenen (${S.custom.length}) · <a href="#/einstellungen" style="color:#FFCC5C">ändern</a></div>` : ""}</div>
       ${todayCard(st, td, goal, gpct, c)}
-      <button class="btn big" data-go="#/lernen/mix">▶ Weiterlernen<small>${c.rot ? "Fehler und neue Fragen zuerst" : "Neue und unsichere Fragen zuerst"}</small></button>
+      <button class="btn big" data-go="#/lernen/mix">▶ Weiterlernen<small>${td < goal ? "Noch " + (goal - td) + " Fragen bis zum Tagesziel" : "Ziel geschafft – 20 Fragen extra"} · ${c.rot ? "Fehler zuerst" : "neue zuerst"}</small></button>
       ${tipCard()}
       <div class="grid2">
         <button class="tile" data-go="#/lernen/fehler"><span class="big">🔁</span><b>Fehler wiederholen</b><span class="muted">${wrong} ${wrong === 1 ? "Frage" : "Fragen"}</span></button>
@@ -363,7 +363,8 @@
   }
   function startLearn(mode) {
     let list, title, back = "#/";
-    if (mode === "mix") { list = pickSmart(allQuestions(), 20); title = "Weiterlernen"; }
+    // Weiterlernen: so viele Fragen, wie heute noch bis zum Tagesziel fehlen (Ziel schon geschafft: 20)
+    if (mode === "mix") { const rest = dailyGoal() - today(); list = pickSmart(allQuestions(), rest > 0 ? rest : 20); title = rest > 0 ? "Tagesziel" : "Weiterlernen"; }
     else if (mode === "fokus") { if (!focus) return go("#/fokus"); list = pickSmart(allQuestions(), 20); title = "Fokus"; back = () => endFocus(true); }
     else if (mode === "fehler") { list = shuffle(allQuestions().filter(q => status(q) === 1)); title = "Fehler wiederholen"; }
     else if (mode === "markiert") { list = shuffle(allQuestions().filter(q => S.flags[q.id])); title = "Markierte Fragen"; }

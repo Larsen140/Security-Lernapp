@@ -2,6 +2,12 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "3.1", d: "2026-11-26", items: [
+      "„Weiterlernen“ geht jetzt nicht mehr nur bis 20, sondern genau bis zu deinem Tagesziel. Hörst du zwischendurch auf, macht die nächste Runde mit den restlichen Fragen weiter",
+      "Auf dem Knopf steht, wie viele Fragen bis zum Tagesziel noch fehlen. Ist das Ziel geschafft, gibt es 20 Fragen extra"
+    ]
+  },
+  {
     v: "3.0", d: "2026-11-26", items: [
       "Neues Design „Lernausweis“: Dein Lernstand sieht jetzt aus wie ein Dienstausweis, mit Sicherheitsmuster, Schild als Prüfsiegel (der Ring füllt sich mit deinem Fortschritt) und Reflexband",
       "Neue Karte „Heute“: Ring mit deinem Tagesziel, Lernserie und Tage bis zur Prüfung auf einen Blick. „Weiterlernen“ steht jetzt direkt darunter",

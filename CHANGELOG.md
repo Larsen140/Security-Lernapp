@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 3.0 vom 26.11.2026
+- **Version:** 3.1 vom 26.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,10 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 3.1 – 26.11.2026
+- `startLearn("mix")`: Rundenlänge = `dailyGoal() − today()` (Titel „Tagesziel“), nach erreichtem Ziel 20; Knopf auf der Startseite zeigt die Restzahl
+
 
 ### 3.0 – 26.11.2026
 - Design 3 „Lernausweis“ (Abschnitt am Ende von `styles.css`): Startseiten-Kopf als Ausweis (`.idcard`: Guilloche aus `repeating-radial-gradient`, Band, Schild mit Fortschrittsring `#pring`, Felder, Reflexband `.tape`). Kacheln mit Linie statt Schatten, schwebende Tab-Leiste auf dem Handy
