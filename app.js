@@ -975,12 +975,15 @@
     const run = exam && !exam.done ? exam : null;
     $("#app").innerHTML = `${run ? `<div class="card runcard"><h2>⏱ Prüfung läuft</h2><p>Frage ${run.i + 1} von ${run.list.length}, ${run.ans.filter(a => a.length).length} beantwortet, noch ${Math.max(0, Math.ceil((run.end - Date.now()) / 60000))} Minuten.</p>
       <button class="btn" data-go="#/pruefung/laeuft">Prüfung fortsetzen ▶</button><button class="btn ghost" id="dropExam">Verwerfen und neu starten</button></div>` : ""}
-      <div class="card"><h2>📝 Wie in der IHK-Prüfung</h2>
-      <ul><li><b>${examSize()} Fragen</b> aus allen 9 Sachgebieten, verteilt wie in der Prüfung</li>
-      <li><b>120 Minuten</b> Zeit</li><li>Eine oder mehrere Antworten können richtig sein. Wie bei der IHK seit 1. Juli 2025 gibt es <b>Teilpunkte</b>: einen Punkt für jede richtig angekreuzte Antwort.</li>
-      <li>Wie falsche Kreuze zählen, hat die IHK nicht veröffentlicht. Die App zieht vorsichtshalber für jedes falsche Kreuz einen Punkt dieser Frage ab. Kreuze also nur an, was du sicher weißt.</li>
-      <li>Bestanden ab <b>50 % der Punkte</b> (IHK: 60 von 120 Punkten)</li><li>Die Lösungen siehst du erst am Ende.</li></ul>
-      <table><tr><th>Sachgebiet</th><th class="n">Fragen</th></tr>${TOPICS.map(t => `<tr><td>${t.icon} ${esc(t.name)}</td><td class="n">${Math.min(t.examCount, questionsOf(t.id).length)}</td></tr>`).join("")}</table>${onlyOwn() ? `<p class="muted">Die Prüfung nutzt nur deine eigenen Fragen.${TOPICS.some(t => questionsOf(t.id).length < t.examCount) ? " In manchen Sachgebieten hast du weniger Fragen als in der echten Prüfung, deshalb ist sie kürzer." : ""}</p>` : ""}</div>
+      <div class="examhero"><h2>Wie in der IHK-Prüfung</h2>
+        <div class="efacts"><div><b>${examSize()}</b>Fragen</div><div><b>120</b>Minuten</div><div><b>50 %</b>zum Bestehen</div></div></div>
+      <div class="card"><h3>So wird gewertet</h3>
+      <ul class="rules"><li>Eine oder mehrere Antworten können richtig sein.</li>
+      <li>Für jede richtig angekreuzte Antwort gibt es einen Punkt (Teilpunkte wie bei der IHK seit Juli 2025).</li>
+      <li>Jedes falsche Kreuz zieht in der App einen Punkt dieser Frage ab. Kreuze also nur an, was du weißt.</li>
+      <li>Die Lösungen siehst du erst am Ende.</li></ul>
+      <details class="fold"><summary>Fragen je Sachgebiet</summary>
+      <table><tr><th>Sachgebiet</th><th class="n">Fragen</th></tr>${TOPICS.map(t => `<tr><td>${t.icon} ${esc(t.name)}</td><td class="n">${Math.min(t.examCount, questionsOf(t.id).length)}</td></tr>`).join("")}</table></details>${onlyOwn() ? `<p class="muted">Die Prüfung nutzt nur deine eigenen Fragen.${TOPICS.some(t => questionsOf(t.id).length < t.examCount) ? " In manchen Sachgebieten hast du weniger Fragen als in der echten Prüfung, deshalb ist sie kürzer." : ""}</p>` : ""}</div>
       ${hist.length ? `<div class="card"><h3>Deine letzten Prüfungen</h3><table>${hist.map(h => `<tr><td>${new Date(h.d).toLocaleDateString("de-DE")} ${new Date(h.d).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}</td><td class="n">${h.pts != null ? h.pts + "/" + h.max + " P." : h.right + "/" + h.total}</td><td class="n ${h.pass ? "pass" : "fail"}"><b>${h.pct}%</b></td></tr>`).join("")}</table></div>` : ""}`;
     if (run) {
       foot("");
@@ -1645,6 +1648,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
   }
 
   // ---------- Einstellungen ----------
+  const settingsOpen = {};
   function settingsPage() {
     setHeader("Einstellungen", null);
     const conf = aiConf();
@@ -1728,6 +1732,15 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
       const r = new FileReader(); r.onload = () => { try { const d = JSON.parse(r.result); if (!d.prog) throw 0; S = Object.assign({}, defaults, d); S.settings = Object.assign({ showCount: true, sound: true, goal: 20 }, S.settings || {}); S.days = S.days || {}; S.del = S.del || {}; save(); toast("Backup geladen ✅"); go("#/"); } catch (e) { toast("Ungültige Backup-Datei"); } };
       r.readAsText(f);
     };
+    // Lange Einstellungsseite: jeden Abschnitt zum Aufklappen machen, „Lernen“ ist offen
+    document.querySelectorAll("#app > .card").forEach((c, i) => {
+      const h = c.querySelector(":scope > h2"); if (!h) return;
+      const d = document.createElement("details"); d.className = c.className + " setsec"; if (c.id) { d.id = c.id; c.removeAttribute("id"); }
+      const key = c.id || "s" + i, open = settingsOpen[key] != null ? settingsOpen[key] : i === 0; d.open = open;
+      const sm = document.createElement("summary"); sm.appendChild(h); d.appendChild(sm);
+      while (c.firstChild) d.appendChild(c.firstChild); c.replaceWith(d);
+      d.addEventListener("toggle", () => { settingsOpen[key] = d.open; });
+    });
     bindSync(); bindTts();
     $("#reset").onclick = () => { if (confirm("Wirklich den gesamten Lernfortschritt löschen?")) { S.prog = {}; S.exams = []; S.flags = {}; S.resetAt = Date.now(); save(); toast("Fortschritt gelöscht"); go("#/"); } };
   }

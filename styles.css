@@ -600,3 +600,53 @@ input[type=date]{font:inherit}
 .whybtn,.guessbtn{display:inline-block;margin-top:10px;background:none;border:1px solid var(--line);border-radius:999px;padding:7px 12px;font:600 14px var(--body);color:var(--text);cursor:pointer}
 .guessbtn{color:var(--muted);margin-left:0}
 @media (prefers-reduced-motion:reduce){ .why.load p{animation:none;-webkit-text-fill-color:currentColor} }
+
+/* =========================================================
+   3.3 Lesbarkeit und ganze App im Lernausweis-Stil
+   ========================================================= */
+:root{--muted:#4B5B70}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--muted:#A4B3C8}}
+:root[data-theme=dark]{--muted:#A4B3C8}
+/* Wörter nur dann mitten im Wort trennen, wenn sie sonst überstehen; sonst normale deutsche Silbentrennung */
+html,body{overflow-wrap:break-word;line-height:1.55}
+/* Keine automatische Silbentrennung: ganze Wörter lesen sich beim Lernen leichter */
+*{hyphens:manual;-webkit-hyphens:manual}
+.muted{font-size:15px;line-height:1.5}
+.qtext{font:600 21px/1.4 var(--body);letter-spacing:-.005em}
+.ans{font-size:17px;line-height:1.45;padding:14px 15px}
+.expl p,.why p{font-size:16px;line-height:1.55}
+.tchip{font-size:14px}
+.tinfo>.muted,.idsub,.topic .muted,.tile .muted{font-size:14px}
+.idcard .stats small{font-size:13px;color:rgba(255,255,255,.66)}
+.idband em{font-size:14px;color:rgba(255,255,255,.7)}
+th.n,td.n{white-space:nowrap}
+.card h2{font:700 22px/1.2 var(--display);margin:0 0 10px}
+.card h3{font:700 19px/1.25 var(--display);margin:0 0 8px}
+/* Prüfung: Eckdaten groß, Regeln kurz */
+.examhero{background:
+  repeating-radial-gradient(circle at 105% -10%,transparent 0 13px,rgba(255,255,255,.035) 13px 14px),
+  linear-gradient(165deg,#15284A 0%,#0D1B2E 70%);color:#fff;border-radius:20px;padding:18px;margin-bottom:14px;box-shadow:0 18px 36px -22px rgba(13,27,46,.85)}
+.examhero h2{font:700 24px/1.15 var(--display);margin:0 0 14px;color:#fff}
+.efacts{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+.efacts div{font:500 14px/1.3 var(--body);color:rgba(255,255,255,.72);padding-left:12px;border-left:1px solid rgba(255,255,255,.14)}
+.efacts div:first-child{padding-left:0;border-left:0}
+.efacts b{display:block;font:700 34px/1 var(--display);color:var(--signal);margin-bottom:4px;font-variant-numeric:tabular-nums}
+ul.rules{margin:0 0 6px;padding-left:20px}
+ul.rules li{margin:6px 0;line-height:1.5}
+details.fold{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+details.fold summary{font:600 16px var(--body);padding:4px 0}
+/* Einstellungen als aufklappbare Abschnitte */
+details.setsec{padding:0;overflow:hidden}
+details.setsec>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px 16px}
+details.setsec>summary::-webkit-details-marker{display:none}
+details.setsec>summary h2{margin:0;font-size:20px}
+details.setsec>summary::after{content:"";flex:none;width:10px;height:10px;border-right:2.5px solid var(--muted);border-bottom:2.5px solid var(--muted);transform:rotate(45deg) translate(-2px,-2px);transition:transform .2s var(--ease)}
+details.setsec[open]>summary::after{transform:rotate(225deg) translate(-2px,-2px)}
+details.setsec[open]>summary{border-bottom:1px solid var(--line)}
+details.setsec>*:not(summary){margin-left:16px;margin-right:16px}
+details.setsec>*:last-child{margin-bottom:16px}
+details.setsec>summary+*{margin-top:12px}
+details.setsec input,details.setsec select,details.setsec .btn{width:calc(100% - 32px)}
+details.setsec>.btn{display:block}
+/* Seitenköpfe: etwas ruhiger, Titel gut lesbar */
+header h1{font-size:24px}

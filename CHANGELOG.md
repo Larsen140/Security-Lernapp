@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 3.2 vom 26.11.2026
+- **Version:** 3.3 vom 26.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,12 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 3.3 – 26.11.2026
+- Lesbarkeit: `--muted` dunkler bzw. heller (Kontrast), `overflow-wrap:break-word` statt `anywhere` (trennte Wörter mitten drin), keine Silbentrennung, größere Frage-/Antworttexte, Tabellenzahlen `nowrap`
+- Prüfungsseite: `.examhero` mit Eckdaten, Regeln als kurze Liste, Verteilung in `details.fold`
+- Einstellungen: Karten werden nach dem Zeichnen zu `details.setsec` (aufklappbar, Zustand in `settingsOpen` nach Position)
+
 
 ### 3.2 – 26.11.2026
 - Nutzer rät und merkt sich nur die richtigen Antworten. Neu: „Weiß nicht“ (`#idk`, `s.idk`) zählt wie falsch und reiht neu ein; „War nur geraten“ (`#guess`, `s.guessed`) setzt den Lernstand der Frage zurück (`s = 0`, `last = false`) und reiht neu ein; `requeue()` fasst das Wiedereinreihen zusammen

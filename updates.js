@@ -2,6 +2,14 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "3.3", d: "2026-11-26", items: [
+      "Besser lesbar: kräftigere graue Texte, etwas größere Fragen und Antworten, mehr Zeilenabstand",
+      "Wörter werden nicht mehr mitten im Wort umbrochen (vorher z. B. „Frage-n“ in der Tabelle)",
+      "Prüfungsseite neu: die Eckdaten groß im Ausweis-Stil (Fragen, Minuten, Bestehensgrenze), die Regeln kurz und klar, die Verteilung zum Aufklappen",
+      "Mehr (Einstellungen) aufgeräumt: Jeder Bereich lässt sich auf- und zuklappen, statt einer sehr langen Seite"
+    ]
+  },
+  {
     v: "3.2", d: "2026-11-26", items: [
       "Verstehen statt raten: Neuer Knopf „🤷 Weiß nicht“. Statt zu raten siehst du sofort die Lösung, und die Frage kommt in der Runde nochmal",
       "Richtig, aber nur geraten? Tippe auf „🎲 War nur geraten“. Dann zählt die Frage nicht als gewusst und kommt wieder",

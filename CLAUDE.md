@@ -52,6 +52,9 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 - Tagesziel (ab 2.10) kommt aus dem Prüfungstermin `S.settings.examDate` (Nutzer: 10.12.2026) über `dailyGoal()`; der Nutzer wollte kein selbst gewähltes Tagesziel mehr. Ohne Termin Rückfall auf `S.settings.goal`. Ab 3.0 mit Puffer `S.settings.buffer` (Standard 3 Tage, Nutzerwunsch: 3 Tage vor der Prüfung fertig).
 - Laufende Prüfung in `localStorage` `slapp-exam` (IDs statt Fragen, `qAny()` stellt sie wieder her).
 
+## Lesbarkeit (ab 3.3)
+- Nutzer will gut lesbare Texte: keine Silbentrennung, `overflow-wrap:break-word` (nicht `anywhere`), Mindestgröße 13–14 px, `--muted` mit genug Kontrast. Einstellungen sind aufklappbare Abschnitte (`details.setsec`) – Tests müssen sie vor dem Klicken öffnen.
+
 ## Zoom
 - Rauszoomen ist gesperrt (Viewport `minimum-scale=1` + Abfangen der Pinch-Geste in `app.js`), Reinzoomen bleibt erlaubt. Nichts darf breiter als der Bildschirm werden (`overflow-wrap:anywhere`), sonst lässt iOS wieder rauszoomen.
 
