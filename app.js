@@ -1454,7 +1454,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     String(txt || "").replace(/\r/g, "").split("\n").forEach(raw => {
       const line = raw.trim(); if (!line) return;
       if (/^[^.?!]{1,60}\/\s*\d{1,4}$/.test(line) || /^\S{1,24}\s*[·•|–-]\s*\d{1,4}$/.test(line) || /^(Seite\s*)?\d{1,4}(\s*(von|\/)\s*\d{1,4})?$/i.test(line)) return; // Seitenzahlen, Fußzeilen
-      if (/^Test\s+\d+$/i.test(line) || /^Weitere Fragen\b/i.test(line)) return; // Zwischenüberschriften
+      if (/^(Übungstest|Test|Teil|Abschnitt|Prüfung|Probeprüfung)\s+\d+$/i.test(line) || /^Weitere Fragen\b/i.test(line)) return; // Zwischenüberschriften
       const opt = line.match(/^([A-Fa-f])\s*[).\]:]\s*(.*)$/);
       const bul = line.match(/^[•▪●◦·–-]\s*(.+)$/);
       const qm = line.match(/^(\d{1,4})\s*[.)]\s+(.+)$/);
@@ -1473,6 +1473,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
       if (last === "a") cur.a[cur.a.length - 1] += " " + line; else if (last === "q") cur.q += " " + line;
     });
     out.forEach(x => {
+      x.a = x.a.map(a => a.replace(/\s+(Übungstest|Test|Teil|Abschnitt)\s+\d+\s*$/i, ""));
       if (TAILVOR.test(x.q)) x.label = "Lösungsvorschlag";
       x.q = cleanQ(x.q);
     });
@@ -1532,6 +1533,13 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
   }
   // Sachgebiet automatisch wählen: Welches Sachgebiet hat die meisten gemeinsamen Fachwörter?
   let topicWords = null;
+  // Steht ganz oben im Dokument der Name eines Sachgebiets (z. B. „Umgang mit Menschen“), gehören alle Fragen dorthin
+  function docTopic(txt) {
+    const norm = t => t.toLowerCase().replace(/\(.*?\)/g, "").replace(/[^a-zäöüß ]/g, " ").replace(/\s+/g, " ").trim();
+    const head = String(txt).split(/\n/).map(l => l.trim()).filter(Boolean).slice(0, 4).map(norm);
+    const hit = TOPICS.find(t => head.some(l => l === norm(t.name) || l.startsWith(norm(t.name) + " ") || l === norm(t.short)));
+    return hit ? hit.id : null;
+  }
   function guessTopic(q) {
     const words = t => (t.toLowerCase().match(/[a-zäöüß§]{5,}|§\s*\d+[a-z]?/g) || []).map(w => w.replace(/\s+/g, ""));
     if (!topicWords) {
@@ -1618,14 +1626,15 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
       const box = $("#impprev");
       if (!parsed.length) { box.innerHTML = `<p class="muted"><b>Keine Fragen erkannt.</b> Jede Frage braucht eine Nummer („1.“) und darunter entweder Antworten mit „A)“, „B)“ … und ✅ bei den richtigen, oder nur die richtigen Antworten als Aufzählung („•“).</p>`; return; }
       const sel = $("#imptopic").value;
-      fresh.forEach(x => { x.topic = sel === "auto" ? guessTopic(x) : sel; });
+      const dt = sel === "auto" ? docTopic($("#imptxt").value) : null;
+      fresh.forEach(x => { x.topic = sel === "auto" ? (dt || guessTopic(x)) : sel; });
       addDistractors(fresh);
       const solN = fresh.filter(x => x.sol).length, vorN = fresh.filter(x => x.label === "Lösungsvorschlag").length;
       const vorInfo = !solN && vorN ? `<p class="muted">${vorN} davon sind als „Lösungsvorschlag“ markiert, also noch nicht bestätigt. Das steht dann auch bei der Frage.</p>` : "";
       const per = {}; fresh.forEach(x => per[x.topic] = (per[x.topic] || 0) + 1);
       box.innerHTML = `<p><b>${parsed.length} Fragen erkannt</b>${parsed.length - fresh.length ? `, davon ${parsed.length - fresh.length} doppelt oder schon vorhanden` : ""}.</p>
         ${solN ? `<p class="muted">${solN} davon enthalten nur die richtigen Antworten. Die App ergänzt falsche Antworten aus anderen Fragen desselben Sachgebiets.${vorN ? ` ${vorN} sind als „Lösungsvorschlag“ markiert, also noch nicht bestätigt.` : ""}</p>` : ""}
-        ${vorInfo}${fresh.length ? `<p class="muted">${Object.keys(per).map(t => esc(topicById(t).short) + ": " + per[t]).join(" · ")}</p><button class="btn" id="impgo">${fresh.length} Fragen übernehmen</button>` : ""}`;
+        ${vorInfo}${dt ? `<p class="muted">Sachgebiet aus der Überschrift erkannt: <b>${esc(topicById(dt).name)}</b>. Alle Fragen kommen dorthin.</p>` : ""}${fresh.length ? `<p class="muted">${Object.keys(per).map(t => esc(topicById(t).short) + ": " + per[t]).join(" · ")}</p><button class="btn" id="impgo">${fresh.length} Fragen übernehmen</button>` : ""}`;
       const go = $("#impgo"); if (go) go.onclick = () => {
         const t0 = Date.now();
         fresh.forEach((x, i) => S.custom.push({ id: "own-" + t0 + "-" + i, topic: x.topic, q: x.q, a: x.a, c: x.c, e: x.e || (x.label === "Lösungsvorschlag" ? "Achtung: nur ein Lösungsvorschlag, noch nicht bestätigt." : ""), p: lawRef(x.q), own: true, imp: true }));

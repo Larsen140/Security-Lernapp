@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 3.3 vom 26.11.2026
+- **Version:** 3.4 vom 26.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,11 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 3.4 – 26.11.2026
+- Import: `docTopic()` nimmt das Sachgebiet aus den ersten Zeilen (Name oder Kürzel), sonst wie bisher `guessTopic()`; Zwischenüberschriften `Übungstest|Test|Teil|Abschnitt|Prüfung N` werden übersprungen bzw. am Antwortende abgeschnitten
+- Geprüft mit der PDF „Umgang mit Menschen – Fragen und Lösungen“ (150 Fragen, 118 verschiedene, alle UmM): zusammen mit den drei früheren PDFs 88 neue Fragen, 30 Überschneidungen mit identischer Lösung, keine Widersprüche
+
 
 ### 3.3 – 26.11.2026
 - Lesbarkeit: `--muted` dunkler bzw. heller (Kontrast), `overflow-wrap:break-word` statt `anywhere` (trennte Wörter mitten drin), keine Silbentrennung, größere Frage-/Antworttexte, Tabellenzahlen `nowrap`

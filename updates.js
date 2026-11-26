@@ -2,6 +2,12 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "3.4", d: "2026-11-26", items: [
+      "Import erkennt das Sachgebiet jetzt an der Überschrift: Steht oben z. B. „Umgang mit Menschen“, landen alle Fragen dort (vorher wurden einige falsch zugeordnet)",
+      "Zwischenüberschriften wie „Übungstest 2“ hängen nicht mehr an der letzten Antwort der Frage davor"
+    ]
+  },
+  {
     v: "3.3", d: "2026-11-26", items: [
       "Besser lesbar: kräftigere graue Texte, etwas größere Fragen und Antworten, mehr Zeilenabstand",
       "Wörter werden nicht mehr mitten im Wort umbrochen (vorher z. B. „Frage-n“ in der Tabelle)",
