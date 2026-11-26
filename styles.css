@@ -428,7 +428,7 @@ input[type=search]{-webkit-appearance:none;appearance:none}
   body[data-page=start] #app>*{margin:0}
   body[data-page=start] .resume,body[data-page=start] .version,body[data-page=start] .grid2,body[data-page=start] .examcard{grid-column:1/-1}
   body[data-page=start] .badge{grid-column:1;grid-row:span 2;height:100%;box-sizing:border-box}
-  body[data-page=start] .daily,body[data-page=start] .btn.big{grid-column:2}
+  body[data-page=start] .todaycard,body[data-page=start] .btn.big{grid-column:2}
   body[data-page=start] .grid2{grid-template-columns:repeat(4,1fr);gap:16px}
   body[data-page=start] .tile{padding:18px}
   /* Sachgebiete nebeneinander */
@@ -490,7 +490,7 @@ body.focus .tabs{display:none!important}
 .tipcard:active{transform:scale(.98)}
 .tipcard .tico{font-size:24px;width:44px;height:44px;display:grid;place-items:center;background:var(--bg);border-radius:12px;flex:none}
 .tipcard .tinf{flex:1;min-width:0}
-.tipcard small{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.tipcard small{display:block;font-size:13px;font-weight:600;color:var(--muted)}
 .tipcard b{display:block;font:700 20px/1.2 var(--display)}
 .tipcard .tinf>span{font-size:14px;color:var(--muted)}
 .syncline{display:block;margin:12px auto 0;background:none;border:0;color:var(--muted);font:500 14px var(--body);cursor:pointer}
@@ -519,3 +519,71 @@ input[type=date]{font:inherit}
 .speakbtn.on{background:var(--signal);color:var(--ink);border-color:var(--signal);animation:pulse 1.4s ease-in-out infinite}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,196,0,.5)}50%{box-shadow:0 0 0 6px rgba(255,196,0,0)}}
 @media (max-width:430px){ .speakbtn .sl{display:none} }
+
+/* =========================================================
+   Design 3 „Lernausweis“ (ab 3.0)
+   Startseite: Lernstand als Dienstausweis mit Guilloche-Muster wie auf Ausweisen,
+   Prüfsiegel-Ring ums Schild, Reflexband als Fortschritt. Alles andere ruhiger:
+   flache Kacheln mit Linie statt Schatten, schwebende Navigation.
+   ========================================================= */
+.idcard{position:relative;padding:0;border-radius:20px;background:
+  repeating-radial-gradient(circle at 105% -10%,transparent 0 13px,rgba(255,255,255,.035) 13px 14px),
+  repeating-radial-gradient(circle at -10% 120%,transparent 0 17px,rgba(255,196,0,.03) 17px 18px),
+  linear-gradient(165deg,#15284A 0%,#0D1B2E 70%);
+  box-shadow:0 1px 0 rgba(255,255,255,.08) inset,0 18px 36px -20px rgba(13,27,46,.85)}
+.idband{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 18px 10px;border-bottom:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04)}
+.idband span{font:700 15px/1 var(--display);letter-spacing:.06em;color:var(--signal)}
+.idband em{font:500 13px/1.2 var(--body);font-style:normal;color:rgba(255,255,255,.6);text-align:right}
+.idbody{display:flex;gap:16px;align-items:center;padding:16px 18px 4px}
+.idphoto{position:relative;flex:none;width:92px;height:92px;border-radius:16px;display:grid;place-items:center;
+  background:conic-gradient(from 210deg,rgba(255,196,0,.10),rgba(120,200,255,.10),rgba(255,120,200,.08),rgba(255,196,0,.10));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.idphoto svg:first-child{position:absolute;inset:4px;width:84px;height:84px;transform:rotate(-90deg)}
+.idphoto .trk{fill:none;stroke:rgba(255,255,255,.1);stroke-width:5}
+.idphoto .val{fill:none;stroke:var(--signal);stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset 1.4s var(--ease)}
+.idphoto .shield{width:40px;height:40px;fill:rgba(255,196,0,.16);stroke:var(--signal);stroke-width:1.6;stroke-linejoin:round}
+.idphoto .shield .ck{fill:none;stroke-width:2;stroke-linecap:round}
+.idmain{flex:1;min-width:0}
+.idlabel{display:block;font:600 15px/1.2 var(--body);color:rgba(255,255,255,.72)}
+.idcard .pct{font:700 68px/.92 var(--display);color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.01em;margin:2px 0 4px}
+.idcard .pct small{font-size:32px;color:var(--signal);margin-left:2px}
+.idsub{display:block;font-size:14px;color:rgba(255,255,255,.6)}
+.idcard .stats{padding:14px 18px 14px;gap:0;border-top:1px dashed rgba(255,255,255,.12);margin-top:14px}
+.idcard .stats div{padding-left:10px;border-left:1px solid rgba(255,255,255,.1)}
+.idcard .stats div:first-child{padding-left:0;border-left:0}
+.idcard .stats small{display:block;font:500 12px/1.2 var(--body);color:rgba(255,255,255,.55)}
+.idcard .stats b{font-size:26px;margin-top:2px}
+.idcard .tape{height:12px;margin:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 6px,rgba(255,255,255,.1) 6px 7px)}
+.idcard .last{padding:10px 18px 14px}
+/* Heute-Karte */
+.todaycard{display:flex;gap:14px;align-items:center;padding:14px 16px}
+.gring{position:relative;flex:none;width:72px;height:72px}
+.gring svg{width:72px;height:72px;transform:rotate(-90deg)}
+.gring .trk{fill:none;stroke:var(--grey);stroke-width:7}
+.gring .val{fill:none;stroke:var(--signal);stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset 1.2s var(--ease) .2s}
+.todaycard.done .gring .val{stroke:var(--green)}
+.gin{position:absolute;inset:0;display:grid;place-content:center;text-align:center;line-height:1}
+.gin b{font:700 22px/1 var(--display);font-variant-numeric:tabular-nums}
+.gin small{font:600 12px var(--body);color:var(--muted)}
+.todaycard.done .gin{font-size:28px}
+.tinfo{flex:1;min-width:0}
+.tinfo>b{display:block;font:700 19px/1.2 var(--display)}
+.tinfo>.muted{display:block;font-size:13px;margin-top:6px}
+.tchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.tchip{font:500 13px/1 var(--body);padding:6px 9px;border-radius:999px;background:var(--bg);color:var(--muted);white-space:nowrap}
+.tchip b{color:var(--text);font-weight:700}
+.tchip.fire{background:color-mix(in srgb,var(--signal) 20%,var(--card));color:var(--text)}
+.tchip.hot{background:color-mix(in srgb,var(--red) 14%,var(--card));color:var(--text)}
+/* Ruhigere Flächen: Linie statt Schatten */
+.tile,.examcard,.tipcard,.topic.card{box-shadow:none;border:1px solid var(--line)}
+.tile .big,.examcard .big{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:var(--bg);font-size:22px}
+.tipcard{border-left:5px solid var(--signal)}
+.btn.big{box-shadow:0 12px 26px -16px rgba(13,27,46,.9)}
+/* Schwebende Navigation auf dem Handy */
+@media (max-width:979px){
+  .tabs{left:12px;right:12px;bottom:max(10px,env(safe-area-inset-bottom));border:1px solid var(--line);border-radius:22px;padding:6px 4px;box-shadow:0 14px 34px -16px rgba(13,27,46,.55)}
+  .tabs a.on{background:color-mix(in srgb,var(--signal) 18%,transparent)}
+  .tabs a.on::after{display:none}
+  main{padding-bottom:calc(110px + env(safe-area-inset-bottom))}
+}
+@media (prefers-reduced-motion:reduce){ .idphoto .val,.gring .val{transition:none} }

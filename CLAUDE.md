@@ -33,6 +33,7 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 
 ## Design
 - Thema „Nachtschicht“: `--ink` Nachtblau, `--signal` Signalgelb, Absperrband-Streifen `--stripe` (Kopfzeile, Lernstand, Fortschritt, Chat-Kopf). Hell = „Tagschicht“.
+- Ab 3.0 „Lernausweis“: Lernstand als Dienstausweis (`.idcard` mit Guilloche-Muster, Schild-Ring `#pring`). Das ist das eine auffällige Element; der Rest bleibt ruhig (Linien statt Schatten). Keine Großbuchstaben-Überschriften.
 - Schrift Barlow / Barlow Condensed (OFL) als `font-*.woff2` im Root, in `sw.js` `FILES` eingetragen.
 - Animationen nur bei Nutzeraktionen; `prefers-reduced-motion` schaltet sie ab.
 - KI-Chat streamt über `streamGenerateContent?alt=sse`; bei Fehler ohne Text Rückfall auf `callAI` (mit Modellwechsel).
@@ -48,7 +49,7 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 ## Aufbau (ab 2.0)
 - Untere Navigation `#tabs` (Start `#/`, Lernen `#/themen`, Prüfung `#/pruefung`, Fragen `#/eigene`, Mehr `#/einstellungen`); `foot()` mit Inhalt blendet sie aus (`body.has-foot`).
 - Töne: `SFX` in `app.js` (Web Audio, keine Dateien), Einstellung `S.settings.sound`. Lerntage `S.days` (für Serie).
-- Tagesziel (ab 2.10) kommt aus dem Prüfungstermin `S.settings.examDate` (Nutzer: 10.12.2026) über `dailyGoal()`; der Nutzer wollte kein selbst gewähltes Tagesziel mehr. Ohne Termin Rückfall auf `S.settings.goal`.
+- Tagesziel (ab 2.10) kommt aus dem Prüfungstermin `S.settings.examDate` (Nutzer: 10.12.2026) über `dailyGoal()`; der Nutzer wollte kein selbst gewähltes Tagesziel mehr. Ohne Termin Rückfall auf `S.settings.goal`. Ab 3.0 mit Puffer `S.settings.buffer` (Standard 3 Tage, Nutzerwunsch: 3 Tage vor der Prüfung fertig).
 - Laufende Prüfung in `localStorage` `slapp-exam` (IDs statt Fragen, `qAny()` stellt sie wieder her).
 
 ## Zoom

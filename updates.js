@@ -2,6 +2,16 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "3.0", d: "2026-11-26", items: [
+      "Neues Design „Lernausweis“: Dein Lernstand sieht jetzt aus wie ein Dienstausweis, mit Sicherheitsmuster, Schild als Prüfsiegel (der Ring füllt sich mit deinem Fortschritt) und Reflexband",
+      "Neue Karte „Heute“: Ring mit deinem Tagesziel, Lernserie und Tage bis zur Prüfung auf einen Blick. „Weiterlernen“ steht jetzt direkt darunter",
+      "Tagesziel mit 3 Tagen Puffer: Die App plant so, dass alle Fragen 3 Tage vor der Prüfung sitzen (bei dir am 6.12.). Die letzten Tage bleiben zum Wiederholen. Einstellbar unter Mehr → Lernen",
+      "Tagesziel geschafft: kleine Feier mit Konfetti und Ton, einmal am Tag",
+      "Neue Töne: weicher und klarer wie kleine Glocken statt Piepser, mit leichtem Nachhall. Auf Android-Handys zusätzlich ein kurzes Vibrieren bei richtig und falsch",
+      "Navigation unten schwebt jetzt als Leiste über dem Inhalt, Kacheln ruhiger mit feiner Linie statt Schatten"
+    ]
+  },
+  {
     v: "2.17", d: "2026-11-25", items: [
       "Rauschen am Ende jetzt wirklich weg: Die neue Google-Stimme schickt hinter dem Ton einen unhörbaren Herkunftsnachweis („KI-erzeugt“) mit, den die App bisher als Ton abgespielt hat. Der wird jetzt übersprungen",
       "Auch das leise Knacken ganz am Anfang ist weg"

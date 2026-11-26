@@ -60,14 +60,24 @@
   // Tagesziel: Mit Prüfungstermin ergibt es sich aus den noch nicht sicheren Fragen (je 2× richtig nötig)
   // geteilt durch die verbleibenden Tage. Es wird einmal pro Tag festgelegt, damit es nicht beim Lernen schrumpft.
   const daysLeft = () => { const d = S.settings.examDate; if (!d) return null; const n = Math.round((new Date(d + "T00:00:00") - new Date(dayKey() + "T00:00:00")) / 864e5); return n > 0 ? n : null; };
+  // Puffer: Die letzten Tage vor der Prüfung bleiben frei für Wiederholen und Prüfungssimulation (Nutzer: 3 Tage)
+  const buffer = () => S.settings.buffer != null ? S.settings.buffer : 3;
+  const learnDays = () => { const l = daysLeft(); return l ? Math.max(1, l - buffer()) : null; };
+  const doneBy = () => { const d = S.settings.examDate; if (!d) return null; const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() - buffer() - 1); return dayKey(x); };
   function dailyGoal() {
-    const left = daysLeft(); if (!left) return S.settings.goal || 20;
+    const left = learnDays(); if (!left) return S.settings.goal || 20;
     const k = dayKey(); let g = null; try { g = JSON.parse(localStorage.getItem("slapp-goal")); } catch (e) {}
-    if (g && g.day === k && g.d === S.settings.examDate) return g.n;
+    if (g && g.day === k && g.d === S.settings.examDate && g.b === buffer()) return g.n;
     const all = allQuestions(), open = all.filter(q => status(q) !== 3).length;
     const n = Math.max(10, Math.ceil(open * 2 / left) + today());
-    try { localStorage.setItem("slapp-goal", JSON.stringify({ day: k, d: S.settings.examDate, n })); } catch (e) {}
+    try { localStorage.setItem("slapp-goal", JSON.stringify({ day: k, d: S.settings.examDate, b: buffer(), n })); } catch (e) {}
     return n;
+  }
+  function goalCheck(k) {
+    let hit = null; try { hit = localStorage.getItem("slapp-goalhit"); } catch (e) {}
+    if (hit === k || today() < dailyGoal()) return;
+    try { localStorage.setItem("slapp-goalhit", k); } catch (e) {}
+    setTimeout(() => { SFX.goal(); toast("🎉 Tagesziel geschafft! " + today() + " Fragen heute"); if (!calm()) confetti(90); }, 650);
   }
   function deviceId() {
     let id = null; try { id = localStorage.getItem("slapp-dev"); } catch (e) {}
@@ -96,6 +106,7 @@
     // Zusätzlich pro Gerät zählen, damit beim Abgleich die Antworten von PC und Handy zusammengezählt werden
     S.dev = S.dev || {}; const mine = S.dev[deviceId()] = S.dev[deviceId()] || {}; mine[k] = (mine[k] || 0) + 1;
     save();
+    goalCheck(k);
   }
   function counts(list) {
     const c = [0, 0, 0, 0];
@@ -112,26 +123,44 @@
       if (ctx.state === "suspended") ctx.resume().catch(() => {});
       return ctx;
     };
-    const tone = (f, at, dur, type, vol, glide) => {
-      const a = ac(); if (!a) return;
-      const t = a.currentTime + at, o = a.createOscillator(), g = a.createGain();
-      o.type = type || "sine"; o.frequency.setValueAtTime(f, t);
-      if (glide) o.frequency.exponentialRampToValueAtTime(glide, t + dur);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.06, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + dur + 0.03);
+    // Gemeinsamer Ausgang: Kompressor gegen Übersteuern und ein kurzes Echo, damit es nach Glocke statt Piepser klingt
+    let out = null;
+    const bus = a => {
+      if (out) return out;
+      const comp = a.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4; comp.connect(a.destination);
+      const dry = a.createGain(); dry.gain.value = 1; dry.connect(comp);
+      const dl = a.createDelay(0.5); dl.delayTime.value = 0.11; const fb = a.createGain(); fb.gain.value = 0.22; const wet = a.createGain(); wet.gain.value = 0.18;
+      const lp = a.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600;
+      dl.connect(fb); fb.connect(lp); lp.connect(dl); dl.connect(wet); wet.connect(comp);
+      out = { dry, dl }; return out;
     };
+    const tone = (f, at, dur, type, vol, glide, bell) => {
+      const a = ac(); if (!a) return; const b = bus(a);
+      const t = a.currentTime + at, g = a.createGain();
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.06, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      g.connect(b.dry); g.connect(b.dl);
+      // Glocke: Grundton plus leiser, leicht verstimmter Oberton
+      [[f, 1], ...(bell ? [[f * 2.01, 0.28], [f * 3.02, 0.08]] : [])].forEach(([fr, lv]) => {
+        const o = a.createOscillator(), og = a.createGain(); og.gain.value = lv;
+        o.type = type || "sine"; o.frequency.setValueAtTime(fr, t);
+        if (glide) o.frequency.exponentialRampToValueAtTime(glide * fr / f, t + dur);
+        o.connect(og); og.connect(g); o.start(t); o.stop(t + dur + 0.05);
+      });
+    };
+    const buzz = p => { try { if (navigator.vibrate) navigator.vibrate(p); } catch (e) {} };
     const on = () => S.settings.sound !== false;
     return {
       unlock() { if (on()) ac(); },
-      tap() { if (on()) tone(1200, 0, 0.035, "triangle", 0.025); },
-      ok() { if (on()) { tone(660, 0, 0.11, "sine", 0.07); tone(990, 0.08, 0.2, "sine", 0.07); } },
-      bad() { if (on()) tone(240, 0, 0.26, "triangle", 0.06, 150); if (navigator.vibrate) navigator.vibrate(50); },
-      combo(n) { if (on()) tone(700 + Math.min(n, 12) * 45, 0.22, 0.09, "sine", 0.045); },
-      done() { if (on()) [523, 659, 784].forEach((f, i) => tone(f, i * 0.1, 0.22, "sine", 0.06)); },
-      pass() { if (on()) [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.13, i === 3 ? 0.6 : 0.2, "triangle", 0.07)); },
+      tap() { if (on()) tone(1500, 0, 0.03, "sine", 0.018); },
+      ok() { if (on()) { tone(784, 0, 0.35, "sine", 0.06, 0, true); tone(1175, 0.07, 0.5, "sine", 0.05, 0, true); } buzz(12); },
+      bad() { if (on()) { tone(196, 0, 0.28, "sine", 0.08, 140); tone(185, 0.02, 0.24, "triangle", 0.025, 130); } buzz([35, 40, 35]); },
+      combo(n) { if (on()) tone(880 * Math.pow(2, Math.min(n, 12) / 12), 0.2, 0.3, "sine", 0.035, 0, true); },
+      done() { if (on()) [523, 659, 784].forEach((f, i) => tone(f, i * 0.11, 0.45, "sine", 0.05, 0, true)); },
+      pass() { if (on()) [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.14, i === 3 ? 1.1 : 0.4, "sine", 0.06, 0, true)); buzz([20, 60, 20, 60, 60]); },
+      goal() { if (on()) [784, 988, 1175, 1568].forEach((f, i) => tone(f, i * 0.08, i === 3 ? 0.9 : 0.3, "sine", 0.045, 0, true)); buzz([15, 40, 15, 40, 40]); },
       // Weckton: zwei helle Glockenschläge, auch bei ausgeschalteten Tönen (nur in der Fokus-Runde)
       alarm() { [[880, 0], [1175, 0.18], [880, 0.5], [1175, 0.68]].forEach(([f, t]) => tone(f, t, 0.35, "sine", 0.12)); },
-      fail() { if (on()) [392, 330, 262].forEach((f, i) => tone(f, i * 0.17, 0.28, "sine", 0.055)); },
+      fail() { if (on()) [392, 330, 262].forEach((f, i) => tone(f, i * 0.2, 0.5, "sine", 0.05, 0, true)); },
     };
   })();
   ["pointerdown", "touchend", "click"].forEach(ev => document.addEventListener(ev, () => SFX.unlock(), { passive: true }));
@@ -195,15 +224,20 @@
     const run = exam && !exam.done ? exam : null;
     const st = streak(), td = today(), goal = dailyGoal(), gpct = Math.min(100, td / goal * 100);
     let html = `${run ? `<button class="resume" data-go="#/pruefung/laeuft"><b>📝 Prüfung läuft</b><span>Frage ${run.i + 1} von ${run.list.length} · noch ${Math.max(0, Math.ceil((run.end - Date.now()) / 60000))} Min. · Weiter ▶</span></button>` : ""}
-      <div class="badge"><div class="tape"><i id="tape" data-w="${pctSafe}"></i><i id="tape2" class="half" data-l="${pctSafe}" data-w="${pctHalf}"></i></div>
-      <div class="top"><div class="title">Sachkunde § 34a GewO<b>Dein Lernstand</b></div><div class="pct"><span id="pctnum" data-to="${pct}" data-dec="${pct > 0 && pct < 10 ? 1 : 0}">0</span><small>%</small></div></div>
-      <div class="stats"><div class="st-g"><b>${c.gruen}</b>sicher</div><div class="st-y"><b>${c.gelb}</b>1× richtig</div><div class="st-r"><b>${c.rot}</b>falsch</div><div><b>${c.neu}</b>neu</div></div>
+      <div class="badge idcard">
+      <div class="idband"><span>Lernausweis</span><em>Sachkunde § 34a GewO</em></div>
+      <div class="idbody">
+        <div class="idphoto"><svg viewBox="0 0 84 84" aria-hidden="true"><circle class="trk" cx="42" cy="42" r="38"/><circle class="val" id="pring" cx="42" cy="42" r="38" stroke-dasharray="238.8" stroke-dashoffset="238.8" data-off="${(238.8 * (1 - Math.min(100, pct) / 100)).toFixed(1)}"/></svg>
+          <svg class="shield" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5.2 3.4 9.6 8 11 4.6-1.4 8-5.8 8-11V5l-8-3Z"/><path class="ck" d="m8.5 12.2 2.4 2.4 4.8-5"/></svg></div>
+        <div class="idmain"><span class="idlabel">Dein Lernstand</span><div class="pct"><span id="pctnum" data-to="${pct}" data-dec="${pct > 0 && pct < 10 ? 1 : 0}">0</span><small>%</small></div>
+          <span class="idsub">${c.total} Fragen · ${pct >= 80 ? "fast prüfungsreif" : pct >= 50 ? "auf gutem Weg" : pct >= 20 ? "im Aufbau" : "gerade gestartet"}</span></div>
+      </div>
+      <div class="stats"><div class="st-g"><small>sicher</small><b>${c.gruen}</b></div><div class="st-y"><small>1× richtig</small><b>${c.gelb}</b></div><div class="st-r"><small>falsch</small><b>${c.rot}</b></div><div><small>neu</small><b>${c.neu}</b></div></div>
+      <div class="tape"><i id="tape" data-w="${pctSafe}"></i><i id="tape2" class="half" data-l="${pctSafe}" data-w="${pctHalf}"></i></div>
       ${onlyOwn() ? `<div class="last">Fragen: nur deine eigenen (${S.custom.length}) · <a href="#/einstellungen" style="color:#FFCC5C">ändern</a></div>` : ""}</div>
-      <div class="card daily"><div class="flame ${st ? "on" : ""}">🔥<b>${st}</b></div><div class="dinfo"><b>${st ? st + (st === 1 ? " Tag" : " Tage") + " in Folge" : "Starte deine Lernserie"}</b>
-        <span class="muted">${td >= goal ? "Tagesziel geschafft ✅ " + td + " Fragen heute" : "Heute " + td + " von " + goal + " Fragen"}</span><div class="dbar"><i style="width:${gpct}%"></i></div></div></div>
-      ${countdown()}
-      ${tipCard()}
+      ${todayCard(st, td, goal, gpct, c)}
       <button class="btn big" data-go="#/lernen/mix">▶ Weiterlernen<small>${c.rot ? "Fehler und neue Fragen zuerst" : "Neue und unsichere Fragen zuerst"}</small></button>
+      ${tipCard()}
       <div class="grid2">
         <button class="tile" data-go="#/lernen/fehler"><span class="big">🔁</span><b>Fehler wiederholen</b><span class="muted">${wrong} ${wrong === 1 ? "Frage" : "Fragen"}</span></button>
         <button class="tile" data-go="#/lernen/quick"><span class="big">⚡</span><b>Schnelltest</b><span class="muted">10 Zufallsfragen</span></button>
@@ -221,6 +255,7 @@
       t.style.width = t.dataset.w + "%"; t2.style.left = t2.dataset.l + "%"; t2.style.width = t2.dataset.w + "%";
     }));
     countUp($("#pctnum"), 1200);
+    requestAnimationFrame(() => requestAnimationFrame(() => { ["#gval", "#pring"].forEach(k => { const g = $(k); if (g) g.style.strokeDashoffset = g.dataset.off; }); }));
     // Einmaliger Hinweis nach einem Update
     if (VERSION && S.seenVersion !== VERSION) {
       const first = !S.seenVersion && !Object.keys(S.prog).length;
@@ -242,6 +277,20 @@
     const pct = Math.round(best.m * 100), t = best.t;
     const why = best.c.rot ? best.c.rot + (best.c.rot === 1 ? " Fehler" : " Fehler") + " offen" : pct ? "erst " + pct + " % sicher" : "noch nicht angefangen";
     return `<button class="tipcard" data-go="#/lernen/t-${t.id}"><span class="tico">${t.icon}</span><span class="tinf"><small>💡 Heute am meisten wert</small><b>${esc(t.short)} üben</b><span>${t.examCount} Fragen in der Prüfung · ${why}</span></span><span class="chev">›</span></button>`;
+  }
+  // „Heute“: Ring mit Tagesziel, Lernserie und Tage bis zur Prüfung in einer Karte
+  function todayCard(st, td, goal, gpct, c) {
+    const R = 30, C = +(2 * Math.PI * R).toFixed(1), off = +(C * (1 - gpct / 100)).toFixed(1), done = td >= goal;
+    const d = S.settings.examDate, left = daysLeft(), isDay = d && left === null && d === dayKey();
+    const open = c.total - c.gruen;
+    const exam = isDay ? `<span class="tchip hot">🍀 Heute ist Prüfung – viel Erfolg!</span>`
+      : left ? `<span class="tchip ${left <= 3 ? "hot" : ""}">📅 noch <b>${left}</b> ${left === 1 ? "Tag" : "Tage"}</span>` : "";
+    return `<div class="card todaycard ${done ? "done" : ""}">
+      <div class="gring"><svg viewBox="0 0 72 72" aria-hidden="true"><circle class="trk" cx="36" cy="36" r="${R}"/><circle class="val" id="gval" cx="36" cy="36" r="${R}" stroke-dasharray="${C}" stroke-dashoffset="${C}" data-off="${off}"/></svg>
+        <div class="gin">${done ? "✅" : `<b>${td}</b><small>/${goal}</small>`}</div></div>
+      <div class="tinfo"><b>${done ? "Tagesziel geschafft!" : td ? "Noch " + (goal - td) + " Fragen für heute" : "Dein Ziel heute: " + goal + " Fragen"}</b>
+        <div class="tchips"><span class="tchip ${st ? "fire" : ""}">🔥 <b>${st}</b> ${st === 1 ? "Tag" : "Tage"} in Folge</span>${exam}</div>
+        ${left && open ? `<span class="muted">${left > buffer() ? `Alles sicher bis ${fmtDate(doneBy())}, danach ${buffer()} Tage Wiederholung · ` : "Endspurt: wiederholen und Prüfung üben · "}${open} Fragen noch offen</span>` : left ? `<span class="muted">Alle Fragen sitzen – jetzt nur noch wiederholen 💪</span>` : ""}</div></div>`;
   }
   // Prüfungstermin: Tage bis zur Prüfung und wie viele Fragen pro Tag dafür nötig sind
   function countdown() {
@@ -1554,7 +1603,8 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     const conf = aiConf();
     $("#app").innerHTML = `<div class="card"><h2>🎯 Lernen</h2>
       <label>📅 Mein Prüfungstermin</label><input type="date" id="exdate" value="${esc(S.settings.examDate || "")}" min="${dayKey()}">
-      <p class="muted">Dein Tagesziel rechnet die App daraus aus: alle Fragen, die noch nicht sicher sitzen, verteilt auf die Tage bis zur Prüfung. ${daysLeft() ? `Heute sind das <b>${dailyGoal()} Fragen</b>.` : ""}</p>
+      <label>Fertig sein</label><select id="buffer">${[0, 1, 2, 3, 4, 5, 7].map(n => `<option value="${n}" ${buffer() === n ? "selected" : ""}>${n ? n + (n === 1 ? " Tag" : " Tage") + " vor der Prüfung" : "bis zum Tag vor der Prüfung"}</option>`).join("")}</select>
+      <p class="muted">Dein Tagesziel rechnet die App daraus aus: alle Fragen, die noch nicht sicher sitzen (je 2× richtig), verteilt auf die Tage bis ${daysLeft() ? fmtDate(doneBy()) : "dahin"}. Die Tage danach bleiben frei zum Wiederholen. ${daysLeft() ? `Heute sind das <b>${dailyGoal()} Fragen</b>.` : ""}</p>
       <label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" id="sound" style="width:22px;height:22px;margin:0" ${S.settings.sound !== false ? "checked" : ""}> Töne bei richtigen und falschen Antworten</label>
       <p class="muted">Die Töne sind leise und laufen über die Medienlautstärke deines Handys.</p>
 </div>
@@ -1582,6 +1632,7 @@ Antworte ohne Einleitung und halte dich kurz: meist 3 bis 6 Sätze oder bis zu 5
     foot("");
     $("#showc").onchange = ev => { S.settings.showCount = ev.target.checked; S.settings._t = Date.now(); save(); toast("Gespeichert"); };
     $("#sound").onchange = ev => { S.settings.sound = ev.target.checked; S.settings._t = Date.now(); save(); if (ev.target.checked) SFX.ok(); toast(ev.target.checked ? "Töne an" : "Töne aus"); };
+    $("#buffer").onchange = ev => { S.settings.buffer = +ev.target.value; S.settings._t = Date.now(); save(); settingsPage(); toast("Tagesziel neu berechnet: " + dailyGoal() + " Fragen"); };
     $("#exdate").onchange = ev => { S.settings.examDate = ev.target.value || null; S.settings._t = Date.now(); save(); toast(ev.target.value ? "Prüfungstermin: " + fmtDate(ev.target.value) : "Prüfungstermin entfernt"); settingsPage(); };
     $("#onlyown").onchange = ev => { S.settings.onlyOwn = ev.target.checked; S.settings._t = Date.now(); save(); toast(ev.target.checked ? "Nur noch deine eigenen Fragen" : "Alle Fragen aktiv"); };
     const del = $("#aidel"); if (del) del.onclick = () => { aiSave({}); settingsPage(); toast("Schlüssel entfernt"); };

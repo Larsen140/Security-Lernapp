@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 2.17 vom 25.11.2026
+- **Version:** 3.0 vom 26.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,14 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 3.0 – 26.11.2026
+- Design 3 „Lernausweis“ (Abschnitt am Ende von `styles.css`): Startseiten-Kopf als Ausweis (`.idcard`: Guilloche aus `repeating-radial-gradient`, Band, Schild mit Fortschrittsring `#pring`, Felder, Reflexband `.tape`). Kacheln mit Linie statt Schatten, schwebende Tab-Leiste auf dem Handy
+- `todayCard()` ersetzt Serie- und Countdown-Karte (Ring `#gval`, Chips für Serie und Resttage); `tipCard()` steht jetzt unter „Weiterlernen“
+- Puffer `S.settings.buffer` (Standard 3): `learnDays()` = Resttage − Puffer, `doneBy()`; `dailyGoal()` merkt den Puffer in `slapp-goal`
+- `goalCheck()`: einmal am Tag Feier beim Erreichen des Tagesziels (`slapp-goalhit`), `SFX.goal()`
+- `SFX` neu: Kompressor + kurzes Echo mit Tiefpass (`bus()`), Glocken-Obertöne, Vibration (`buzz`)
+
 
 ### 2.17 – 25.11.2026
 - Ursache des Rauschens gefunden (im Chrome des Nutzers gemessen): `gemini-3.8-flash-tts` liefert `audio/wav` statt rohem PCM, mit `fmt `-, `data`- und einem ~7,6 KB `C2PA`-Block (Content Credentials) am Ende. Der wurde als Ton dekodiert (≈160 ms Rauschen), der 44-Byte-Kopf als Knacken. `decodeAudio()` liest bei RIFF/WAVE nur den `data`-Block und nimmt Rate/Kanäle aus `fmt `
