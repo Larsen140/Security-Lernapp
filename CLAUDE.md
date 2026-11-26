@@ -78,6 +78,9 @@ Live über GitHub Pages aus `main` (Ordner `/`): https://larsen140.github.io/Sec
 ## Verstehen statt raten (ab 3.2)
 - Nutzer riet und merkte sich nur die Lösungen. „Weiß nicht“ und „War nur geraten“ zählen wie falsch; KI-Erklärung `explainWhy()` für Fragen ohne `e`, gespeichert als `ke` (wird abgeglichen).
 
+## Aufräumen der Importe (ab 3.5)
+- `tidyCustom()` läuft bei jedem Start (idempotent): Seitenreste weg, exakte Doppelte zusammenführen. Widersprüche und Varianten bleiben. Stand Nutzer 26.11.2026: 946 importierte Fragen, nur eigene Fragen aktiv.
+
 ## Speicher (localStorage)
 - `slapp-v1` – Fortschritt, eigene Fragen, Prüfungen, Markierungen, Einstellungen, zuletzt gesehene Version (`seenVersion`)
 - `slapp-ai` – KI-Schlüssel und Modell

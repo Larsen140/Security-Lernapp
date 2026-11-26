@@ -7,7 +7,7 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 
 ## Aktueller Stand
 
-- **Version:** 3.4 vom 26.11.2026
+- **Version:** 3.5 vom 26.11.2026
 - **Geräte:** Handy und PC teilen die Daten über ein geheimes Gist im GitHub-Konto des Nutzers (Mehr → „PC und Handy verbinden“)
 - **Fragen:** 451 in 9 Sachgebieten (selbst formuliert aus den Gesetzestexten, keine KATI-Inhalte)
 - **Prüfungssimulation:** 82 Fragen, 120 Minuten, Teilpunkte wie bei der IHK seit 1. Juli 2025, bestanden ab 50 % der Punkte
@@ -34,6 +34,11 @@ Die gleiche Liste siehst du in der App unter **„Was ist neu?"** (ganz unten au
 - [x] Mehr Fragen für „Umgang mit Menschen" (+15) und „Sicherheitstechnik" (+17)
 
 ## Versionen
+
+### 3.5 – 26.11.2026
+- Prüfung mit dem Backup des Nutzers (1078 importierte Fragen): 20 mit Seitenrest „KATI · N“ (alte Importe vor 2.2), 132 exakte Doppelte, 1 echter Widerspruch (gleiche Frage und Antworten, andere Lösung), 23 Varianten mit anderen Antwortmöglichkeiten
+- `tidyCustom()` beim Start: Seitenreste am Ende von Frage/Antworten entfernen, exakte Doppelte zusammenführen (Lernstand, Markierung, `ke` gehen auf die behaltene Frage über, die anderen per `forget()` auch auf dem anderen Gerät weg). Ergebnis beim Nutzer: 946 Fragen, Lernstand unverändert
+
 
 ### 3.4 – 26.11.2026
 - Import: `docTopic()` nimmt das Sachgebiet aus den ersten Zeilen (Name oder Kürzel), sonst wie bisher `guessTopic()`; Zwischenüberschriften `Übungstest|Test|Teil|Abschnitt|Prüfung N` werden übersprungen bzw. am Antwortende abgeschnitten

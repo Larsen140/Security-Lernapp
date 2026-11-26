@@ -2,6 +2,13 @@
 // Wird in der App unter „Was ist neu“ angezeigt. Bitte auch CHANGELOG.md mitpflegen.
 window.SL_UPDATES = [
   {
+    v: "3.5", d: "2026-11-26", items: [
+      "Deine importierten Fragen werden automatisch aufgeräumt: 132 genau doppelte Fragen (gleicher Text, gleiche Antworten, gleiche Lösung) gibt es jetzt nur noch einmal. Dein Lernstand dazu bleibt erhalten",
+      "Seitenreste wie „KATI · 32“ am Ende von Antworten sind weg (20 Fragen)",
+      "Fragen mit anderen Antwortmöglichkeiten oder anderer Lösung bleiben unverändert erhalten"
+    ]
+  },
+  {
     v: "3.4", d: "2026-11-26", items: [
       "Import erkennt das Sachgebiet jetzt an der Überschrift: Steht oben z. B. „Umgang mit Menschen“, landen alle Fragen dort (vorher wurden einige falsch zugeordnet)",
       "Zwischenüberschriften wie „Übungstest 2“ hängen nicht mehr an der letzten Antwort der Frage davor"

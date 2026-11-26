@@ -21,6 +21,35 @@
   // Alte Importe: Hinweis „Lösung aus früherer KATI-Auswertung“ aus den Fragetiteln entfernen
   S.custom.forEach(c => { if (c && /KATI-Auswertung|Lösungsvorschlag\s*:?\s*$/i.test(c.q || "")) c.q = String(c.q).replace(/\s*Lösung(en)? aus (einer )?früher(er|en) KATI-Auswertung(en)?\s*:?/gi, " ").replace(/\s*(KATI-Auswertung|Lösungsvorschlag)\s*:?\s*$/i, "").replace(/\s{2,}/g, " ").trim(); });
   const forget = id => { S.del[id] = Date.now(); };
+  // Aufräumen der importierten Fragen (läuft bei jedem Start, ändert nur, was nötig ist):
+  // 1) Seitenreste am Ende („KATI · 32“, „12 / 33“, „Übungstest 2“) aus Frage und Antworten entfernen
+  // 2) Genau gleiche Fragen (gleicher Text, gleiche Antworten, gleiche Lösung) nur einmal behalten – die mit dem meisten
+  //    Lernstand; Lernstand, Markierung und KI-Erklärung gehen auf sie über, die anderen werden über forget() auch auf
+  //    dem anderen Gerät entfernt. Fragen mit anderen Antworten oder anderer Lösung bleiben unangetastet.
+  (function tidyCustom() {
+    const tail = t => String(t).replace(/\s+(KATI\s*·\s*\d{1,4}|\d{1,4}\s*\/\s*\d{1,4}|Übungstest\s+\d+|Seite\s+\d+)\s*$/i, "").trim();
+    let changed = false;
+    S.custom.forEach(c => { if (!c || !c.imp) return; const q = tail(c.q), a = c.a.map(tail); if (q !== c.q || a.some((x, i) => x !== c.a[i])) { c.q = q; c.a = a; changed = true; } });
+    const norm = t => String(t).toLowerCase().replace(/[^a-zäöüß0-9]/g, "");
+    const key = c => norm(c.q) + "#" + c.a.map(norm).sort().join("|") + "#" + c.c.map(i => norm(c.a[i])).sort().join("|");
+    const groups = {}; S.custom.forEach(c => { if (c && c.imp) (groups[key(c)] = groups[key(c)] || []).push(c); });
+    const drop = new Set();
+    Object.values(groups).forEach(g => {
+      if (g.length < 2) return;
+      const n = c => (S.prog[c.id] && S.prog[c.id].n) || 0;
+      const keep = g.slice().sort((x, y) => n(y) - n(x))[0];
+      g.forEach(c => {
+        if (c === keep) return;
+        const p = S.prog[c.id], k = S.prog[keep.id];
+        if (p && (!k || (p.t || 0) > (k.t || 0))) S.prog[keep.id] = Object.assign({}, p, { n: Math.max(p.n || 0, (k && k.n) || 0) });
+        if (S.flags[c.id] && !S.flags[keep.id]) S.flags[keep.id] = S.flags[c.id];
+        if (c.ke && !keep.ke) keep.ke = c.ke;
+        delete S.prog[c.id]; delete S.flags[c.id]; forget(c.id); drop.add(c);
+      });
+    });
+    if (drop.size) S.custom = S.custom.filter(c => !drop.has(c));
+    if (changed || drop.size) try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+  })();
   // KI-Zugang wird getrennt gespeichert und ist NICHT im Backup enthalten
   const AIKEY = "slapp-ai";
   // Nur Google-Gemini-Schlüssel im Format „AQ.…“ werden akzeptiert
